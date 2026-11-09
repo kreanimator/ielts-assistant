@@ -1,0 +1,27 @@
+# Your own books, sessions, recordings and the database: never commit
+data/
+
+# Downloaded model weights
+models/
+*.gguf
+*.safetensors
+*.bin
+*.onnx
+*.pt
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Flutter
+frontend/.dart_tool/
+frontend/build/
+frontend/.flutter-plugins*
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
