@@ -40,6 +40,8 @@ class _HomePageState extends State<HomePage> {
   final _session = Session();
   final _topic = TextEditingController();
   Options? _options;
+  List<BookTest> _tests = []; // imported from your books
+  String? _test; // BookTest.key, or null for questions made up by the examiner
   String? _loadError;
   String _mode = 'part1';
   String _voice = 'bf_emma';
@@ -67,7 +69,9 @@ class _HomePageState extends State<HomePage> {
     setState(() => _loadError = null);
     try {
       final options = await fetchOptions();
+      final tests = await fetchBookTests();
       setState(() {
+        _tests = tests;
         _options = options;
         if (!options.voices.any((v) => v.id == _voice)) _voice = options.voices.first.id;
         if (!options.modes.any((m) => m.id == _mode)) _mode = options.modes.first.id;
@@ -86,7 +90,13 @@ class _HomePageState extends State<HomePage> {
 
   void _start() {
     final topic = _topic.text.trim();
-    _session.start(mode: _mode, voice: _voice, topic: topic.isEmpty ? null : topic);
+    _session.start(mode: _mode, voice: _voice, topic: topic.isEmpty ? null : topic, test: _chosenTest);
+  }
+
+  /// The chosen book test, when the mode can use one.
+  BookTest? get _chosenTest {
+    if (_mode != 'part1' && _mode != 'part3') return null;
+    return _tests.where((t) => t.key == _test).firstOrNull;
   }
 
   @override
@@ -103,6 +113,9 @@ class _HomePageState extends State<HomePage> {
         mode: _mode,
         voice: _voice,
         topic: _topic,
+        tests: _tests,
+        test: _chosenTest,
+        onTest: (key) => setState(() => _test = key),
         enabled: !_session.active && _session.phase != Phase.ending,
         onHistory: _showHistory,
         onMode: (id) => setState(() => _mode = id),

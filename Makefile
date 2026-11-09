@@ -6,7 +6,7 @@ LLAMA_VERSION ?= b12233
 LLAMA_BUILD ?= ubuntu-vulkan-x64
 LLAMA_DIR = tools/llama-$(LLAMA_VERSION)
 
-.PHONY: setup llm frontend frontend-dev run license-check
+.PHONY: setup llm frontend frontend-dev run books license-check
 
 # Create the Python environment.
 setup:
@@ -42,6 +42,12 @@ frontend-dev:
 # Start the backend at http://127.0.0.1:8000 (the developer test page is at /dev).
 run:
 	cd backend && ../$(VENV)/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# Import the Speaking tests from your own IELTS books (the LLM server must be running):
+#   make books BOOKS='~/Books/*.pdf'      (escape spaces in names: BOOKS='~/My\ Books/*.pdf')
+# They are saved in data/private/books/ (git-ignored). Never commit them.
+books:
+	PYTHONPATH=backend $(VENV)/bin/python -m app.books $(BOOKS)
 
 # Fail if a GPL or AGPL package got installed.
 license-check:

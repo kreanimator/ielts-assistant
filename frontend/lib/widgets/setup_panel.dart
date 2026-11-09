@@ -10,6 +10,9 @@ class SetupPanel extends StatelessWidget {
     required this.mode,
     required this.voice,
     required this.topic,
+    required this.tests,
+    required this.test,
+    required this.onTest,
     required this.enabled,
     required this.onMode,
     required this.onVoice,
@@ -21,6 +24,9 @@ class SetupPanel extends StatelessWidget {
   final Options options;
   final String mode, voice;
   final TextEditingController topic;
+  final List<BookTest> tests; // imported from your books
+  final BookTest? test; // the chosen one, if any
+  final ValueChanged<String?> onTest;
   final bool enabled;
   final ValueChanged<String> onMode, onVoice;
   final bool liveCorrections; // can be changed during a session too
@@ -56,10 +62,14 @@ class SetupPanel extends StatelessWidget {
               onTap: () => onMode(m.id),
             ),
           ),
+        if (mode == 'part1' || mode == 'part3') ...[
+          const SizedBox(height: 16),
+          _QuestionsPicker(tests: tests, test: test, mode: mode, enabled: enabled, onTest: onTest),
+        ],
         const SizedBox(height: 16),
         TextField(
           controller: topic,
-          enabled: enabled,
+          enabled: enabled && test == null,
           decoration: const InputDecoration(
             labelText: 'Topic (optional)',
             hintText: 'e.g. hometown, technology',
@@ -90,6 +100,59 @@ class SetupPanel extends StatelessWidget {
           title: const Text('Language model'),
           subtitle: Text(options.model),
         ),
+      ],
+    );
+  }
+}
+
+/// Where the questions come from: the examiner, or a real test from your books.
+class _QuestionsPicker extends StatelessWidget {
+  const _QuestionsPicker({
+    required this.tests,
+    required this.test,
+    required this.mode,
+    required this.enabled,
+    required this.onTest,
+  });
+
+  final List<BookTest> tests;
+  final BookTest? test;
+  final String mode;
+  final bool enabled;
+  final ValueChanged<String?> onTest;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    if (tests.isEmpty) {
+      return Text(
+        'To practise with real test questions, import your IELTS books: make books BOOKS=\'path/*.pdf\'',
+        style: text.bodySmall,
+      );
+    }
+    final chosen = test;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DropdownMenu<String>(
+          key: ValueKey(chosen?.key),
+          enabled: enabled,
+          expandedInsets: EdgeInsets.zero,
+          menuHeight: 400,
+          requestFocusOnTap: false, // a list to pick from, not a text field
+          label: const Text('Questions'),
+          initialSelection: chosen?.key ?? '',
+          dropdownMenuEntries: [
+            const DropdownMenuEntry(value: '', label: 'Made up by the examiner'),
+            for (final t in tests) DropdownMenuEntry(value: t.key, label: t.label),
+          ],
+          onSelected: (key) => onTest(key == null || key.isEmpty ? null : key),
+        ),
+        if (chosen != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 4),
+            child: Text('Topics: ${chosen.topics(mode).join(', ')}', style: text.bodySmall),
+          ),
       ],
     );
   }

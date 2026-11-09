@@ -6,11 +6,11 @@ after each session you get a report with an estimated band for each IELTS criter
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
-> **Status:** milestones 1–5 work: voice conversation with an AI examiner in the
+> **Status:** milestones 1–6 work: voice conversation with an AI examiner in the
 > web app, in three training modes, with corrections, fluency numbers and a
 > pronunciation check on each answer, a band report at the end of each session,
-> and a history with your recordings and progress charts. Importing your own exam
-> books comes next. See [docs/PLAN.md](docs/PLAN.md).
+> a history with your recordings and progress charts, and real test questions
+> imported from your own books. The timed full exam with the Part 2 cue card comes next. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Run it
 
@@ -35,6 +35,20 @@ http://127.0.0.1:5000. A plain developer test page is at http://127.0.0.1:8000/d
 The LLM server uses llama.cpp's **Vulkan** build, because it works with any recent
 NVIDIA, AMD or Intel driver. With NVIDIA driver 570 or newer you can use the
 faster CUDA build: `make llm LLAMA_BUILD=ubuntu-cuda-12.8-x64`.
+
+### Practise with your own IELTS books
+
+If you own IELTS books as PDF files, import their Speaking tests (with the LLM
+server running):
+
+```bash
+make books BOOKS='~/Books/IELTS/*.pdf'
+```
+
+Scanned books are read with OCR, about 1 second per page; books with a text layer
+take under a minute. Books in the three-part Speaking format work (Cambridge IELTS 3
+and later); the older role-play format of Cambridge IELTS 1 and 2 is skipped. The tests are saved in `data/private/books/`, which git
+ignores. Then choose **Part 1** or **Part 3** and pick a test under **Questions**.
 
 Settings such as the voice or the end-of-turn pause are environment variables;
 see [backend/app/config.py](backend/app/config.py).

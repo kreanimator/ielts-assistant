@@ -29,7 +29,7 @@ async def complete_json(messages: list[dict], schema: dict) -> dict:
         "chat_template_kwargs": {"enable_thinking": False},
         "response_format": {"type": "json_schema", "json_schema": {"name": "reply", "schema": schema}},
     }
-    async with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=300) as client:  # long: the server may be busy with a chat
         response = await client.post(f"{config.LLM_URL}/chat/completions", json=payload)
         response.raise_for_status()
         return json.loads(response.json()["choices"][0]["message"]["content"])

@@ -2,13 +2,16 @@
 
 HTTP:
   GET /api/options   voices, training modes and the LLM model, for the setup screen
+  GET /api/books     the Speaking tests imported from your books (see books.py)
   /api/sessions/...  past sessions and reports (see history.py)
   GET /              the Flutter app (after `make frontend`)
   GET /dev           a plain developer test page
 
 WebSocket protocol on /ws:
-  client → server  JSON  {"type": "start", "mode": "part1", "voice": "bf_emma", "topic": "travel"}
-                         (all optional; mode is one of /api/options "modes")
+  client → server  JSON  {"type": "start", "mode": "part1", "voice": "bf_emma", "topic": "travel",
+                          "book": "cambridge-ielts-08", "test": 2}
+                         (all optional; mode is one of /api/options "modes"; book and test pick
+                          real questions for Part 1 or Part 3, instead of a topic)
                    bytes PCM16 mono 16 kHz microphone audio, any chunk size
                    JSON  {"type": "end"}                            finish: wait for pending feedback, then close
   server → client  JSON  {"type": "ready", "session": "<id>"}       models loaded, examiner about to speak
@@ -28,6 +31,7 @@ WebSocket protocol on /ws:
                    JSON  {"type": "ended", "session": "<id>"}       everything saved; the report can be requested
 """
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -39,7 +43,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, fluency, history, llm, storage
+from . import books, config, fluency, history, llm, storage
 from .analyst import analyse
 from .examiner import MODES, Conversation
 from .pronunciation import PronunciationScorer
@@ -82,6 +86,28 @@ async def options():
     }
 
 
+@app.get("/api/books")
+def list_books():
+    """Each book with a short outline of its tests (the questions stay on the server)."""
+    return [
+        {
+            "id": b["id"],
+            "title": b["title"],
+            "tests": [
+                {
+                    "test": t["test"],
+                    "part1": [x["topic"] for x in t["part1"]],
+                    "part2": t["part2"]["task"],
+                    "part3": [x["topic"] for x in t["part3"]],
+                }
+                for t in b["tests"]
+            ],
+        }
+        for b in books.load_books()
+        if b["tests"]
+    ]
+
+
 @app.get("/dev")
 def dev_page():
     return FileResponse(DEV_PAGE)
@@ -103,7 +129,10 @@ async def session(ws: WebSocket):
         voice = start.get("voice") if start.get("voice") in config.VOICES else config.DEFAULT_VOICE
         mode = start.get("mode") if start.get("mode") in MODES else "part1"
         topic = start.get("topic")
-        conversation = Conversation(mode, examiner_name(voice), topic)
+        test = books.find_test(start.get("book", ""), start.get("test") or 0) if mode in ("part1", "part3") else None
+        if test:
+            topic = f"{test['book']}, Test {test['test']}"
+        conversation = Conversation(mode, examiner_name(voice), topic, test)
         session_id = storage.create_session(mode, topic, voice, await llm.model_name())
         turns = TurnDetector(config.END_OF_TURN_SILENCE_MS)
         await ws.send_json({"type": "ready", "session": session_id})
@@ -199,11 +228,24 @@ async def send_partial(ws: WebSocket, audio: np.ndarray):
 async def examiner_turn(ws: WebSocket, session_id: str, conversation: Conversation, voice: str):
     """Streams the reply sentence by sentence: each one is spoken while the next is written."""
     reply = []
-    async for sentence in llm.stream_sentences(conversation.messages()):
+    _, question = conversation.next_step()  # a book test's question, said word for word
+
+    async def say(sentence: str):
         reply.append(sentence)
         await ws.send_json({"type": "examiner", "text": sentence})
         audio = await asyncio.to_thread(speaker.speak, sentence, voice)
         await ws.send_bytes(to_pcm16(audio))
+
+    # aclosing: stopping early closes the LLM request at once
+    async with contextlib.aclosing(llm.stream_sentences(conversation.messages())) as sentences:
+        async for sentence in sentences:
+            if question:  # only a short reaction before the test question, never a question of its own
+                if not sentence.endswith("?"):
+                    await say(sentence)
+                break
+            await say(sentence)
+    if question:
+        await say(question)
     text = " ".join(reply)
     conversation.add_examiner(text)
     storage.add_message(session_id, "examiner", text)

@@ -40,17 +40,58 @@ Rules:
 - If an answer is very short, ask a natural follow-up ("Why is that?", "Can you give an example?")."""
 
 
+# With a real test from your books (see books.py), the server keeps the script. For a test
+# question the LLM only writes a short reaction, and the question is added word for word.
+REACT = ("Reply with only a short, neutral reaction to the answer, at most six words, "
+         "like \"I see.\" or \"Thank you.\" Do not ask anything.")
+FOLLOW_UP = 'The answer was short. Ask only "Why?" or "Can you tell me more about that?"'
+SHORT_ANSWER_WORDS = 15  # a shorter answer to a test question gets one follow-up
+
+
+def book_steps(mode: str, test: dict) -> list[tuple[str, str | None]]:
+    """Each examiner turn in order: (instruction for the LLM, test question said after it)."""
+    if mode == "part1":
+        steps = [
+            ("Greet the candidate, say your name, and ask their full name.", None),
+            ("Briefly react, then ask whether they work or study.", None),
+            ("Briefly react, then ask one question about their work or studies.", None),
+        ]
+        steps += [(REACT, q) for t in test["part1"] for q in t["questions"]]
+        return steps + [("Thank the candidate and say that Part 1 is over.", None)]
+    steps = [
+        (REACT, f"Let's talk about {t['topic'].lower()}. {q}" if i == 0 else q)
+        for t in test["part3"]
+        for i, q in enumerate(t["questions"])
+    ]
+    steps[0] = ("Greet the candidate in one short sentence that says your name. Do not ask anything.", steps[0][1])
+    return steps + [("Thank the candidate and say that the test is over.", None)]
+
+
 class Conversation:
-    def __init__(self, mode: str, examiner_name: str, topic: str | None = None):
+    def __init__(self, mode: str, examiner_name: str, topic: str | None = None, test: dict | None = None):
         system = MODES[mode]["prompt"].format(name=examiner_name) + RULES
-        if topic:
+        self.steps = book_steps(mode, test) if test and mode in ("part1", "part3") else []
+        self.step = 0  # the next step to do
+        self.follow_up = False  # the next turn asks for more on a short answer
+        if not self.steps and topic:
             system += f"\n- The topic is: {topic}."
         self.system = system
         self.turns = []  # {"role": "user" | "assistant", "content": str}
 
     def messages(self) -> list[dict]:
         history = self.turns or [{"role": "user", "content": "(The candidate is ready.)"}]
+        if self.steps:  # the instruction goes last, where the model follows it best
+            last = history[-1]
+            history = [*history[:-1], {**last, "content": f"{last['content']}\n\n(Your next turn: {self.next_step()[0]})"}]
         return [{"role": "system", "content": self.system}, *history]
+
+    def next_step(self) -> tuple[str, str | None]:
+        """The instruction for the next examiner turn, and the test question to add after it."""
+        if self.follow_up:
+            return FOLLOW_UP, None
+        if self.step < len(self.steps):
+            return self.steps[self.step]
+        return "The test is over. Say goodbye in one short sentence.", None
 
     def last_question(self) -> str:
         return next((t["content"] for t in reversed(self.turns) if t["role"] == "assistant"), "")
@@ -60,6 +101,13 @@ class Conversation:
 
     def add_candidate(self, text: str):
         self.turns.append({"role": "user", "content": text})
+        if self.follow_up:  # this answered the follow-up: move on
+            self.follow_up = False
+            return
+        answered_test_question = 0 < self.step <= len(self.steps) and self.steps[self.step - 1][1] is not None
+        self.follow_up = answered_test_question and len(text.split()) < SHORT_ANSWER_WORDS
 
     def add_examiner(self, text: str):
         self.turns.append({"role": "assistant", "content": text})
+        if not self.follow_up:
+            self.step += 1

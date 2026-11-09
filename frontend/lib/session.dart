@@ -99,7 +99,7 @@ class Session extends ChangeNotifier {
 
   int get correctionCount => answers.fold(0, (sum, a) => sum + (a.feedback?.corrections.length ?? 0));
 
-  Future<void> start({required String mode, required String voice, String? topic}) async {
+  Future<void> start({required String mode, required String voice, String? topic, BookTest? test}) async {
     messages.clear();
     partial = '';
     id = null;
@@ -113,7 +113,16 @@ class Session extends ChangeNotifier {
     final ws = web.WebSocket(sessionUri.toString())..binaryType = 'arraybuffer';
     _ws = ws;
     ws.onopen = ((web.Event _) {
-      ws.send(jsonEncode({'type': 'start', 'mode': mode, 'voice': voice, 'topic': topic}).toJS);
+      ws.send(
+        jsonEncode({
+          'type': 'start',
+          'mode': mode,
+          'voice': voice,
+          'topic': topic,
+          'book': test?.bookId,
+          'test': test?.number,
+        }).toJS,
+      );
     }).toJS;
     ws.onmessage = ((web.MessageEvent event) => _receive(event.data)).toJS;
     ws.onclose = ((web.CloseEvent _) {

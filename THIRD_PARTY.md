@@ -26,6 +26,7 @@ Before adding a dependency, check its license and add it here.
 | Text to speech | Kokoro-82M | Apache-2.0 | https://huggingface.co/hexgrad/Kokoro-82M |
 | English tagger for TTS | spaCy en_core_web_sm | MIT | https://github.com/explosion/spacy-models |
 | Phoneme recognition (pronunciation) | wav2vec2-lv-60-espeak-cv-ft | Apache-2.0 | https://huggingface.co/facebook/wav2vec2-lv-60-espeak-cv-ft |
+| OCR for scanned book pages | PP-OCRv6 detection and recognition, PP-OCR text direction (ONNX, shipped inside the rapidocr package) | Apache-2.0 | https://github.com/RapidAI/RapidOCR (original: https://github.com/PaddlePaddle/PaddleOCR) |
 
 ## Data
 
@@ -47,8 +48,10 @@ Before adding a dependency, check its license and add it here.
 | English text processing | spaCy, thinc, nltk, inflect, regex, addict | MIT, MIT, Apache-2.0, MIT, Apache-2.0, MIT |
 | Number words for TTS | num2words | LGPL-2.1 (unmodified library) |
 | Backend | FastAPI, Starlette, Uvicorn, httpx, websockets | MIT, BSD-3-Clause, BSD-3-Clause, BSD-3-Clause, BSD-3-Clause |
-| Planned: database | SQLite | Public domain |
-| Planned: PDF text and OCR | pypdf, pdfplumber, Tesseract | BSD-3-Clause, MIT, Apache-2.0 |
+| Database | SQLite (Python's built-in sqlite3) | Public domain |
+| Book importer: PDF text | pypdf, cryptography (for encrypted PDFs) | BSD-3-Clause, Apache-2.0 OR BSD-3-Clause |
+| Book importer: OCR | pypdfium2 (PDFium), rapidocr, onnxruntime, Shapely, pyclipper, omegaconf, colorlog, Pillow | Apache-2.0 / BSD-3-Clause, Apache-2.0, MIT, BSD-3-Clause, MIT, BSD-3-Clause, MIT, MIT-CMU |
+| Book importer: images | opencv-python-headless (its wheel bundles FFmpeg libraries, LGPL-2.1, unmodified) | Apache-2.0 |
 | Frontend | Flutter, Dart, packages `http` and `web` | BSD-3-Clause |
 | Frontend font | Roboto, Noto Sans (bundled in `frontend/assets/fonts`) | SIL OFL 1.1 |
 
@@ -68,6 +71,7 @@ They are runtime libraries like the GPU driver, not part of this project.
 | eSpeak-ng, phonemizer | GPL-3.0; Kokoro's default fallback, replaced by CMUdict + g2p_en |
 | Distance | GPL; declared by g2p_en but never used by it |
 | PyMuPDF | AGPL-3.0 |
+| pdf2image, pdftotext (Poppler) | GPL; pypdf and PDFium do the same job |
 | Llama, Gemma models | Custom licenses with usage restrictions, not open source |
 | XTTS-v2, F5-TTS weights | Licenses with extra noncommercial terms of their own |
 | Any cloud API | Everything must run locally |

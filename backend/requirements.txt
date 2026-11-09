@@ -25,3 +25,10 @@ en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_
 # g2p_en dependencies (pronunciation of words missing from misaki's dictionary)
 nltk==3.10.4
 inflect==7.6.0
+
+# Book importer: PDF text, and OCR for scanned pages (models ship inside rapidocr)
+pypdf==7.0.0
+cryptography==50.0.2
+pypdfium2==5.15.2
+rapidocr==3.10.0
+onnxruntime==1.31.1

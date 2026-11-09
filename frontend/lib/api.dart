@@ -47,3 +47,31 @@ Future<Options> fetchOptions() async {
   if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
   return Options.fromJson(jsonDecode(response.body));
 }
+
+/// One Speaking test imported from your books: its topics, for the picker.
+class BookTest {
+  BookTest.fromJson(this.bookId, this.bookTitle, Map<String, dynamic> json)
+    : number = json['test'],
+      part1 = List<String>.from(json['part1']),
+      part2 = json['part2'],
+      part3 = List<String>.from(json['part3']);
+
+  final String bookId, bookTitle, part2;
+  final int number;
+  final List<String> part1, part3;
+
+  String get key => '$bookId#$number';
+  String get label => '$bookTitle · Test $number';
+
+  List<String> topics(String mode) => mode == 'part1' ? part1 : part3;
+}
+
+/// All imported tests, book by book (empty until you run `make books`).
+Future<List<BookTest>> fetchBookTests() async {
+  final response = await http.get(apiUri('/api/books'));
+  if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
+  return [
+    for (final book in jsonDecode(utf8.decode(response.bodyBytes)))
+      for (final test in book['tests']) BookTest.fromJson(book['id'], book['title'], test),
+  ];
+}

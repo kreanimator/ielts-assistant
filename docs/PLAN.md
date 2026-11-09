@@ -87,5 +87,7 @@ without any books.
    and Grammar against the band descriptors and quotes evidence; Pronunciation comes from the
    measured score, with a first-guess mapping still to calibrate), session history in SQLite with
    answer recordings, and progress charts
-6. Book importer
+6. ✅ Book importer: Speaking tests from your own PDF books (text layer, or OCR for scanned
+   pages), structured by the LLM into Part 1 topics, the Part 2 cue card and Part 3 topics;
+   Part 1 and Part 3 practice can use a real test's questions
 7. Full exam mode with strict timing
