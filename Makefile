@@ -6,7 +6,7 @@ LLAMA_VERSION ?= b12233
 LLAMA_BUILD ?= ubuntu-vulkan-x64
 LLAMA_DIR = tools/llama-$(LLAMA_VERSION)
 
-.PHONY: setup llm run license-check
+.PHONY: setup llm frontend frontend-dev run license-check
 
 # Create the Python environment.
 setup:
@@ -30,7 +30,16 @@ llm: models/$(LLM_FILE) $(LLAMA_DIR)/llama-server
 	LD_LIBRARY_PATH=$(LLAMA_DIR) $(LLAMA_DIR)/llama-server -m models/$(LLM_FILE) --alias qwen3.5-9b \
 		--host 127.0.0.1 --port 8081 -ngl 99 -c 8192 -fa off --reasoning off
 
-# Start the backend; open http://127.0.0.1:8000 for the test page.
+# Build the Flutter web app; the backend serves it at http://127.0.0.1:8000
+frontend:
+	cd frontend && flutter build web --release --no-web-resources-cdn
+
+# Flutter with hot reload at http://127.0.0.1:5000 (the backend must be running too).
+frontend-dev:
+	cd frontend && flutter run -d web-server --web-hostname 127.0.0.1 --web-port 5000 --no-web-resources-cdn \
+		--dart-define=BACKEND=http://127.0.0.1:8000
+
+# Start the backend at http://127.0.0.1:8000 (the developer test page is at /dev).
 run:
 	cd backend && ../$(VENV)/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 

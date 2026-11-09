@@ -45,6 +45,10 @@ class TurnDetector:
                     self.preroll.clear()
         return events
 
+    def current(self) -> np.ndarray | None:
+        """The answer heard so far, while the user is still speaking."""
+        return np.concatenate(self.speech) if self.speech else None
+
     def reset(self):
         """Forget any half-heard speech, e.g. after the examiner has spoken."""
         self.vad.reset_states()

@@ -10,6 +10,16 @@ from . import config
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 
 
+async def model_name() -> str:
+    """The model the LLM server is running, or the configured name if it can't be reached."""
+    try:
+        async with httpx.AsyncClient(timeout=3) as client:
+            response = await client.get(f"{config.LLM_URL}/models")
+            return response.json()["data"][0]["id"]
+    except (httpx.HTTPError, KeyError, IndexError, ValueError):
+        return config.LLM_MODEL
+
+
 async def stream_reply(messages: list[dict]) -> AsyncIterator[str]:
     """Yields the reply text piece by piece as the model writes it."""
     payload = {

@@ -6,23 +6,29 @@ after each session you get a report with an estimated band for each IELTS criter
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
-> **Status:** milestone 1 (voice loop) works, using a developer test page. The
-> Flutter app comes next. See [docs/PLAN.md](docs/PLAN.md).
+> **Status:** milestones 1–2 work: voice conversation with an AI examiner in the
+> web app, in three training modes. Live corrections come next. See
+> [docs/PLAN.md](docs/PLAN.md).
 
 ## Run it
 
-You need Linux, Python 3.12, a GPU with about 10 GB of free memory (developed on
-an RTX 4060 Ti 16 GB) and Chrome.
+You need Linux, Python 3.12, Flutter 3.38+, a GPU with about 10 GB of free memory
+(developed on an RTX 4060 Ti 16 GB) and Chrome or Edge.
 
 ```bash
-make setup   # Python environment (once, a few minutes)
-make llm     # downloads the LLM (6.6 GB) and llama.cpp once, then runs the LLM server
-make run     # in a second terminal: the backend
+make setup      # Python environment (once, a few minutes)
+make frontend   # build the web app (after each frontend change)
+make llm        # downloads the LLM (6.6 GB) and llama.cpp once, then runs the LLM server
+make run        # in a second terminal: the backend
 ```
 
-Open http://127.0.0.1:8000 in Chrome, allow the microphone, press **Start** and
-answer the examiner. Use headphones if you can. Whisper and Kokoro download their
-models (about 2 GB) the first time the backend starts.
+Open http://127.0.0.1:8000, allow the microphone, choose a training mode and
+press **Start**. Use headphones if you can. Whisper and Kokoro download their
+models (about 2 GB) the first time the backend starts. After that, nothing is
+downloaded: the app's fonts and renderer are bundled.
+
+For frontend work with hot reload, run `make frontend-dev` and open
+http://127.0.0.1:5000. A plain developer test page is at http://127.0.0.1:8000/dev.
 
 The LLM server uses llama.cpp's **Vulkan** build, because it works with any recent
 NVIDIA, AMD or Intel driver. With NVIDIA driver 570 or newer you can use the

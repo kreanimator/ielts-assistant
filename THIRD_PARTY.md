@@ -6,6 +6,7 @@
   or public domain.
 - Weak copyleft (**LGPL, MPL**) is allowed only for libraries installed unmodified
   as normal dependencies, never copied into this repository.
+- Fonts may be **SIL OFL 1.1**. They are bundled unmodified, with their license file.
 - **GPL and AGPL are not allowed**, including as dependencies of dependencies.
   Their terms conflict with this project's noncommercial license.
 - Model weights and third-party binaries are **not stored in this repository**.
@@ -48,7 +49,8 @@ Before adding a dependency, check its license and add it here.
 | Backend | FastAPI, Starlette, Uvicorn, httpx, websockets | MIT, BSD-3-Clause, BSD-3-Clause, BSD-3-Clause, BSD-3-Clause |
 | Planned: database | SQLite | Public domain |
 | Planned: PDF text and OCR | pypdf, pdfplumber, Tesseract | BSD-3-Clause, MIT, Apache-2.0 |
-| Planned: frontend | Flutter / Dart | BSD-3-Clause |
+| Frontend | Flutter, Dart, packages `http` and `web` | BSD-3-Clause |
+| Frontend font | Roboto (bundled in `frontend/assets/fonts`) | SIL OFL 1.1 |
 
 Smaller transitive dependencies are all MIT, BSD, Apache-2.0, ISC, PSF or MPL-2.0
 (certifi, tqdm). `make license-check` lists them.

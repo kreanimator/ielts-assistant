@@ -8,8 +8,13 @@ LLM_MODEL = os.environ.get("LLM_MODEL", "qwen3.5-9b")
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "large-v3-turbo")
 DEVICE = os.environ.get("DEVICE", "cuda")
 
-# Kokoro voices: bf_/bm_ are British, af_/am_ are American.
+# Kokoro voices offered in the app. The prefix is accent and gender:
+# bf_ British female, bm_ British male, af_ American female, am_ American male.
+VOICES = ["bf_emma", "bf_isabella", "bm_george", "bm_fable", "af_heart", "af_bella", "am_michael", "am_fenrir"]
 DEFAULT_VOICE = os.environ.get("VOICE", "bf_emma")
+
+# While you speak, the live transcript is refreshed this often.
+PARTIAL_TRANSCRIPT_EVERY_S = float(os.environ.get("PARTIAL_TRANSCRIPT_EVERY_S", "1.0"))
 
 # How long you must be silent before your answer counts as finished.
 # IELTS candidates pause to think, so this is longer than in a chat assistant.
