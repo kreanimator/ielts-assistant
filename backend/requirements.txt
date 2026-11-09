@@ -1,0 +1,27 @@
+# Install with `make setup`. PyTorch is installed first, from the CUDA 12.4 index.
+# kokoro, misaki and g2p_en are installed afterwards with --no-deps, because their
+# declared dependencies include GPL packages they don't need for our use
+# (eSpeak-ng, phonemizer, Distance). Their real dependencies are listed here.
+
+fastapi==0.162.2
+uvicorn[standard]==0.54.0
+httpx==0.28.1
+numpy==2.5.4
+
+faster-whisper==1.2.1
+silero-vad==6.2.3
+
+# Kokoro and misaki dependencies
+transformers==5.22.2
+huggingface_hub==2.4.0
+loguru==0.7.3
+attrs==26.1.0
+addict==2.4.0
+regex==2026.11.9
+num2words==0.5.14
+spacy==3.8.18
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+
+# g2p_en dependencies (pronunciation of words missing from misaki's dictionary)
+nltk==3.10.4
+inflect==7.6.0

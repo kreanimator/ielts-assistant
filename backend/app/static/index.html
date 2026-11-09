@@ -1,0 +1,125 @@
+<!doctype html>
+<!-- Developer test page for the voice loop. The real app is the Flutter UI (milestone 2). Use Chrome. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Voice loop test</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+  label { margin-right: 1rem; }
+  #status { font-weight: bold; }
+  .you { color: #0a6b3a; }
+  .examiner { color: #1a4fa0; }
+</style>
+</head>
+<body>
+<h1>Voice loop test</h1>
+<p>
+  <label>Voice
+    <select id="voice">
+      <option>bf_emma</option><option>bf_isabella</option><option>bm_george</option>
+      <option>bm_lewis</option><option>af_heart</option><option>am_michael</option>
+    </select>
+  </label>
+  <label>Topic <input id="topic" placeholder="optional, e.g. hometown"></label>
+</p>
+<p><button id="start">Start</button> <button id="stop" disabled>Stop</button></p>
+<p>Status: <span id="status">idle</span></p>
+<div id="log"></div>
+
+<script>
+// Sends each block of mic samples from the audio thread to the page.
+const WORKLET = `
+class Mic extends AudioWorkletProcessor {
+  process(inputs) {
+    const samples = inputs[0][0];
+    if (samples) this.port.postMessage(samples.slice(0));
+    return true;
+  }
+}
+registerProcessor('mic', Mic);`;
+
+let ws, stream, micCtx, playCtx;
+let micMuted = true;  // the mic is off while the examiner speaks, so it cannot hear itself
+let playEnd = 0;      // when the queued examiner audio finishes, in playCtx time
+
+const $ = id => document.getElementById(id);
+const setStatus = text => $('status').textContent = text;
+function addLine(cls, text) {
+  const p = document.createElement('p');
+  p.className = cls;
+  p.textContent = text;
+  $('log').append(p);
+}
+
+$('start').onclick = async () => {
+  $('start').disabled = true;
+  $('stop').disabled = false;
+  stream = await navigator.mediaDevices.getUserMedia({
+    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+  });
+  micCtx = new AudioContext({ sampleRate: 16000 });
+  playCtx = new AudioContext({ sampleRate: 24000 });
+  const workletUrl = URL.createObjectURL(new Blob([WORKLET], { type: 'text/javascript' }));
+  await micCtx.audioWorklet.addModule(workletUrl);
+  const mic = new AudioWorkletNode(micCtx, 'mic');
+  micCtx.createMediaStreamSource(stream).connect(mic);
+  mic.connect(micCtx.destination);  // outputs silence; keeps the node running
+  mic.port.onmessage = event => sendMic(event.data);
+
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.binaryType = 'arraybuffer';
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type: 'start', voice: $('voice').value, topic: $('topic').value || null }));
+    setStatus('loading…');
+  };
+  ws.onmessage = event => event.data instanceof ArrayBuffer ? play(event.data) : handle(JSON.parse(event.data));
+  ws.onclose = () => setStatus('closed');
+};
+
+$('stop').onclick = () => {
+  ws?.close();
+  stream?.getTracks().forEach(track => track.stop());
+  micCtx?.close();
+  playCtx?.close();
+  $('start').disabled = false;
+  $('stop').disabled = true;
+};
+
+function handle(msg) {
+  if (msg.type === 'ready') setStatus('examiner speaking');
+  if (msg.type === 'listening') setStatus('hearing you…');
+  if (msg.type === 'transcript') {
+    addLine('you', 'You: ' + msg.text);
+    micMuted = true;
+    setStatus('examiner thinking');
+  }
+  if (msg.type === 'examiner') addLine('examiner', 'Examiner: ' + msg.text);
+  if (msg.type === 'examiner_done') {
+    const msLeft = Math.max(0, playEnd - playCtx.currentTime) * 1000;
+    setTimeout(() => { micMuted = false; setStatus('your turn'); }, msLeft + 300);
+  }
+}
+
+function sendMic(samples) {
+  if (micMuted || ws?.readyState !== WebSocket.OPEN) return;
+  const pcm = new Int16Array(samples.length);
+  for (let i = 0; i < samples.length; i++) pcm[i] = Math.max(-1, Math.min(1, samples[i])) * 32767;
+  ws.send(pcm.buffer);
+}
+
+function play(data) {
+  const pcm = new Int16Array(data);
+  const buffer = playCtx.createBuffer(1, pcm.length, 24000);
+  const channel = buffer.getChannelData(0);
+  for (let i = 0; i < pcm.length; i++) channel[i] = pcm[i] / 32768;
+  const source = playCtx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(playCtx.destination);
+  playEnd = Math.max(playEnd, playCtx.currentTime);
+  source.start(playEnd);
+  playEnd += buffer.duration;
+}
+</script>
+</body>
+</html>

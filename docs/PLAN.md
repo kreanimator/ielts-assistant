@@ -7,11 +7,18 @@ The defaults fit one 16 GB GPU (developed on an RTX 4060 Ti 16 GB with 32 GB RAM
 | Model | VRAM |
 |---|---|
 | Whisper large-v3-turbo (int8) | ~2 GB |
-| wav2vec2 phoneme model | ~1.3 GB |
-| Qwen3-14B Q4_K_M | ~9 GB |
+| wav2vec2 phoneme model (milestone 4) | ~1.3 GB |
+| Qwen3.5-9B Q5_K_M, 8k context | ~7 GB |
 | Kokoro-82M | <1 GB |
 
-On smaller GPUs, use Qwen3-8B and a smaller Whisper model.
+On smaller GPUs, use a smaller quantization (`make llm LLM_FILE=Qwen3.5-9B-Q4_K_M.gguf`)
+and a smaller Whisper model. If the analyst needs more quality later, the next step
+is Qwen3.6-35B-A3B (MoE) with part of the experts in system RAM.
+
+Measured on the development machine (RTX 4060 Ti, Vulkan build): the LLM writes
+about 35 tokens/s, Kokoro speaks a sentence in 0.05 s, Whisper transcribes an
+answer in about 0.2 s. The first examiner audio starts 0.6–0.8 s after the
+end-of-turn pause.
 
 ## Architecture
 
@@ -69,7 +76,7 @@ without any books.
 
 ## Milestones
 
-1. Backend voice loop: mic → transcript → LLM reply → spoken reply
+1. ✅ Backend voice loop: mic → transcript → LLM reply → spoken reply
 2. Flutter web UI: dialogue window, live transcript, mode picker
 3. Live analyst and corrections panel
 4. Measured fluency features and pronunciation scoring

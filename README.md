@@ -6,7 +6,30 @@ after each session you get a report with an estimated band for each IELTS criter
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
-> **Status:** planning. See [docs/PLAN.md](docs/PLAN.md).
+> **Status:** milestone 1 (voice loop) works, using a developer test page. The
+> Flutter app comes next. See [docs/PLAN.md](docs/PLAN.md).
+
+## Run it
+
+You need Linux, Python 3.12, a GPU with about 10 GB of free memory (developed on
+an RTX 4060 Ti 16 GB) and Chrome.
+
+```bash
+make setup   # Python environment (once, a few minutes)
+make llm     # downloads the LLM (6.6 GB) and llama.cpp once, then runs the LLM server
+make run     # in a second terminal: the backend
+```
+
+Open http://127.0.0.1:8000 in Chrome, allow the microphone, press **Start** and
+answer the examiner. Use headphones if you can. Whisper and Kokoro download their
+models (about 2 GB) the first time the backend starts.
+
+The LLM server uses llama.cpp's **Vulkan** build, because it works with any recent
+NVIDIA, AMD or Intel driver. With NVIDIA driver 570 or newer you can use the
+faster CUDA build: `make llm LLAMA_BUILD=ubuntu-cuda-12.8-x64`.
+
+Settings such as the voice or the end-of-turn pause are environment variables;
+see [backend/app/config.py](backend/app/config.py).
 
 ## Features (planned)
 

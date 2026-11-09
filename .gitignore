@@ -25,3 +25,6 @@ frontend/.flutter-plugins*
 .idea/
 .vscode/
 .DS_Store
+
+# Downloaded tools (llama.cpp server)
+tools/
