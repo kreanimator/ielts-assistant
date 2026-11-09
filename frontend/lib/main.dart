@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'api.dart';
+import 'pages/history_page.dart';
+import 'pages/session_page.dart';
 import 'session.dart';
 import 'widgets/corrections_panel.dart';
 import 'widgets/dialogue_panel.dart';
@@ -46,8 +48,20 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _session.onEnded = _showReport;
     _load();
   }
+
+  String _modeTitle(String id) => _options?.modes.where((m) => m.id == id).firstOrNull?.title ?? id;
+
+  void _showReport(String id) => Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => SessionPage(id: id, modeTitle: _modeTitle),
+    ),
+  );
+
+  void _showHistory() => Navigator.push(context, MaterialPageRoute(builder: (_) => HistoryPage(modeTitle: _modeTitle)));
 
   Future<void> _load() async {
     setState(() => _loadError = null);
@@ -89,7 +103,8 @@ class _HomePageState extends State<HomePage> {
         mode: _mode,
         voice: _voice,
         topic: _topic,
-        enabled: !_session.active,
+        enabled: !_session.active && _session.phase != Phase.ending,
+        onHistory: _showHistory,
         onMode: (id) => setState(() => _mode = id),
         onVoice: (id) => setState(() => _voice = id),
         liveCorrections: _live,
@@ -116,7 +131,12 @@ class _HomePageState extends State<HomePage> {
                 headerAction: _CorrectionsButton(session: _session, live: _live),
               );
         return Scaffold(
-          appBar: phone ? AppBar(title: const Text('IELTS Speaking')) : null,
+          appBar: phone
+              ? AppBar(
+                  title: const Text('IELTS Speaking'),
+                  actions: [IconButton(tooltip: 'History', onPressed: _showHistory, icon: const Icon(Icons.history))],
+                )
+              : null,
           drawer: phone ? Drawer(child: SafeArea(child: setup)) : null,
           endDrawer: wide ? null : Drawer(width: 360, child: SafeArea(child: corrections)),
           body: SafeArea(

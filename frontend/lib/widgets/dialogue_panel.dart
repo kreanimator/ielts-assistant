@@ -55,6 +55,7 @@ class _DialoguePanelState extends State<DialoguePanel> {
     Phase.yourTurn => 'Your turn: speak when you are ready',
     Phase.hearing => 'Listening…',
     Phase.thinking => '${widget.examinerName} is thinking',
+    Phase.ending => 'Saving your session…',
     Phase.error => s.error,
   };
 
@@ -99,9 +100,15 @@ class _DialoguePanelState extends State<DialoguePanel> {
             _LiveTranscript(session: s),
             Padding(
               padding: const EdgeInsets.all(16),
-              child: s.active
+              child: s.phase == Phase.ending
+                  ? FilledButton.icon(
+                      onPressed: null,
+                      icon: const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                      label: const Text('Saving your answers'),
+                    )
+                  : s.active
                   ? OutlinedButton.icon(
-                      onPressed: s.stop,
+                      onPressed: s.end,
                       icon: const Icon(Icons.stop),
                       label: const Text('End session'),
                     )

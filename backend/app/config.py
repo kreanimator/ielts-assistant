@@ -1,5 +1,9 @@
 """Settings, read from environment variables with sensible defaults."""
 import os
+from pathlib import Path
+
+# Your sessions, recordings and the database (git-ignored, never leaves this computer).
+DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parents[2] / "data"))
 
 # Any OpenAI-compatible server works: llama.cpp (default, see docker-compose.yml), Ollama, vLLM.
 LLM_URL = os.environ.get("LLM_URL", "http://127.0.0.1:8081/v1")

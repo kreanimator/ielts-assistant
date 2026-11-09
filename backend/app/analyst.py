@@ -49,7 +49,7 @@ Return:
   Never comment on fillers ("um", "uh"), speed or pronunciation: they are measured
   separately. List each mistake once. If the answer has no real mistakes, return an
   empty list.
-- good: one specific thing the candidate did well, at most 20 words.
+- good: one specific thing the candidate did well, at most 20 words, addressed to them ("You ...").
 - tip: one practical way to reach a higher IELTS band with this answer, at most 20
   words, for example adding a reason or an example, or a better linking word."""
 

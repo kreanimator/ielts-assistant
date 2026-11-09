@@ -6,9 +6,11 @@ after each session you get a report with an estimated band for each IELTS criter
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
-> **Status:** milestones 1–4 work: voice conversation with an AI examiner in the
+> **Status:** milestones 1–5 work: voice conversation with an AI examiner in the
 > web app, in three training modes, with corrections, fluency numbers and a
-> pronunciation check on each answer. Session reports with band scores come next. See [docs/PLAN.md](docs/PLAN.md).
+> pronunciation check on each answer, a band report at the end of each session,
+> and a history with your recordings and progress charts. Importing your own exam
+> books comes next. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Run it
 
@@ -66,7 +68,8 @@ and it stores them in `data/private/`, which git ignores. Do not commit or share
 copyrighted material.
 
 **Your data stays local.** Recordings, transcripts and reports are saved under
-`data/` on your machine and are never uploaded anywhere.
+`data/` on your machine (`data/ielts.db` and `data/sessions/`) and are never
+uploaded anywhere. Delete a session from the History page to remove it.
 
 ## License
 

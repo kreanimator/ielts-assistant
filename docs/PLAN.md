@@ -83,6 +83,9 @@ without any books.
    can be hidden until the session ends)
 4. ✅ Measured fluency (speed, pauses, fillers, repetitions) and pronunciation scoring
    (phoneme recognition aligned with the CMU dictionary; flags sound patterns like /θ/ said as /s/)
-5. Final report with band estimates; history and progress charts
+5. ✅ Session report with band estimates (the LLM judges Fluency and Coherence, Lexical Resource
+   and Grammar against the band descriptors and quotes evidence; Pronunciation comes from the
+   measured score, with a first-guess mapping still to calibrate), session history in SQLite with
+   answer recordings, and progress charts
 6. Book importer
 7. Full exam mode with strict timing

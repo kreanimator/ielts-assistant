@@ -8,15 +8,26 @@ import 'package:web/web.dart' as web;
 import 'api.dart';
 import 'audio.dart';
 
-enum Phase { idle, connecting, examinerSpeaking, yourTurn, hearing, thinking, error }
+enum Phase { idle, connecting, examinerSpeaking, yourTurn, hearing, thinking, ending, error }
 
 class Message {
   Message({required this.fromExaminer, this.text = ''});
+
+  /// A message from a past session (GET /api/sessions/{id}).
+  Message.fromStored(Map<String, dynamic> json)
+    : fromExaminer = json['role'] == 'examiner',
+      text = json['text'],
+      answer = json['answer'],
+      hasAudio = json['has_audio'] ?? false,
+      feedback = json['feedback'] == null ? null : AnswerFeedback.fromJson(json['feedback']),
+      delivery = json['delivery'] == null ? null : Delivery.fromJson(json['delivery']);
 
   final bool fromExaminer;
   String text;
   AnswerFeedback? feedback; // for the candidate's answers, once the analyst has checked it
   Delivery? delivery; // measured fluency and pronunciation of the answer
+  int? answer; // stored answers: 0, 1, 2, ...
+  bool hasAudio = false; // stored answers: the recording can be played
 }
 
 /// Measured numbers for one answer. Any of them can be missing for very short answers.
@@ -70,12 +81,16 @@ class Session extends ChangeNotifier {
   final messages = <Message>[];
   String partial = ''; // live transcript of the answer being spoken
   String error = '';
+  String? id; // the stored session, once the backend has created it
+
+  /// Called with the session id when a session with answers has been saved.
+  void Function(String id)? onEnded;
 
   web.WebSocket? _ws;
   bool _micOpen = false; // closed while the examiner speaks, so it can't hear itself
   Timer? _turnTimer;
 
-  bool get active => phase != Phase.idle && phase != Phase.error;
+  bool get active => phase != Phase.idle && phase != Phase.error && phase != Phase.ending;
 
   List<Message> get answers => [
     for (final m in messages)
@@ -87,6 +102,7 @@ class Session extends ChangeNotifier {
   Future<void> start({required String mode, required String voice, String? topic}) async {
     messages.clear();
     partial = '';
+    id = null;
     _setPhase(Phase.connecting);
     try {
       await BrowserAudio.startMic(_sendMic);
@@ -103,6 +119,15 @@ class Session extends ChangeNotifier {
     ws.onclose = ((web.CloseEvent _) {
       if (_ws == ws) _fail('Lost the connection to the backend. Is `make run` still running?');
     }).toJS;
+  }
+
+  /// Ends the session. With answers, waits until the backend has saved their feedback.
+  void end() {
+    final ws = _ws;
+    if (ws == null || answers.isEmpty || ws.readyState != web.WebSocket.OPEN) return stop();
+    _cleanUp();
+    ws.send(jsonEncode({'type': 'end'}).toJS);
+    _setPhase(Phase.ending);
   }
 
   void stop() {
@@ -128,14 +153,19 @@ class Session extends ChangeNotifier {
 
   void _receive(JSAny? data) {
     if (data.isA<JSArrayBuffer>()) {
-      BrowserAudio.play(data as JSArrayBuffer);
+      if (phase != Phase.ending) BrowserAudio.play(data as JSArrayBuffer);
       return;
     }
     final message = jsonDecode((data as JSString).toDart) as Map<String, dynamic>;
     switch (message['type']) {
       case 'ready':
+        id = message['session'];
         _setPhase(Phase.examinerSpeaking);
-      case 'examiner':
+      case 'ended':
+        _ws = null; // the backend closes the connection
+        _setPhase(Phase.idle);
+        onEnded?.call(message['session']);
+      case 'examiner' when phase != Phase.ending:
         if (messages.isEmpty || !messages.last.fromExaminer) messages.add(Message(fromExaminer: true));
         messages.last.text = '${messages.last.text} ${message['text']}'.trim();
         _setPhase(Phase.examinerSpeaking);

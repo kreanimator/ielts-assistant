@@ -15,6 +15,7 @@ class SetupPanel extends StatelessWidget {
     required this.onVoice,
     required this.liveCorrections,
     required this.onLiveCorrections,
+    required this.onHistory,
   });
 
   final Options options;
@@ -24,6 +25,7 @@ class SetupPanel extends StatelessWidget {
   final ValueChanged<String> onMode, onVoice;
   final bool liveCorrections; // can be changed during a session too
   final ValueChanged<bool> onLiveCorrections;
+  final VoidCallback onHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +35,12 @@ class SetupPanel extends StatelessWidget {
       children: [
         Text('IELTS Speaking', style: text.titleLarge),
         Text('Practice session', style: text.bodyMedium),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: enabled ? onHistory : null,
+          icon: const Icon(Icons.history),
+          label: const Text('History and progress'),
+        ),
         const SizedBox(height: 24),
         Text('Training', style: text.titleSmall),
         const SizedBox(height: 8),

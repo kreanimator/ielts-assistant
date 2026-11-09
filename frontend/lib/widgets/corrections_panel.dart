@@ -40,7 +40,7 @@ class CorrectionsPanel extends StatelessWidget {
           body = Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              children: [for (var i = answers.length - 1; i >= 0; i--) _AnswerCard(number: i + 1, answer: answers[i])],
+              children: [for (var i = answers.length - 1; i >= 0; i--) AnswerCard(number: i + 1, answer: answers[i])],
             ),
           );
         }
@@ -82,11 +82,14 @@ class _Note extends StatelessWidget {
   }
 }
 
-class _AnswerCard extends StatelessWidget {
-  const _AnswerCard({required this.number, required this.answer});
+/// One answer's measured numbers and corrections.
+class AnswerCard extends StatelessWidget {
+  const AnswerCard({super.key, required this.number, required this.answer, this.full = false, this.action});
 
   final int number;
   final Message answer;
+  final bool full; // show the whole answer, not two lines
+  final Widget? action; // shown next to the title, e.g. a play button
 
   @override
   Widget build(BuildContext context) {
@@ -99,17 +102,22 @@ class _AnswerCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Answer $number', style: theme.textTheme.labelLarge),
+            Row(
+              children: [
+                Expanded(child: Text('Answer $number', style: theme.textTheme.labelLarge)),
+                ?action,
+              ],
+            ),
             const SizedBox(height: 4),
             Text(
               answer.text,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              maxLines: full ? null : 2,
+              overflow: full ? null : TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
             ),
             const SizedBox(height: 8),
             if (answer.delivery != null) _DeliveryView(answer.delivery!),
-            if (feedback == null)
+            if (feedback == null && !full)
               const Row(
                 children: [
                   SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2)),
@@ -117,7 +125,7 @@ class _AnswerCard extends StatelessWidget {
                   Text('Checking your answer…'),
                 ],
               )
-            else ...[
+            else if (feedback != null) ...[
               if (feedback.corrections.isEmpty)
                 _Line(icon: Icons.check_circle_outline, color: Colors.green.shade700, text: 'No mistakes found.'),
               for (final c in feedback.corrections) _CorrectionView(c),
