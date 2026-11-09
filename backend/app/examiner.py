@@ -52,6 +52,12 @@ class Conversation:
         history = self.turns or [{"role": "user", "content": "(The candidate is ready.)"}]
         return [{"role": "system", "content": self.system}, *history]
 
+    def last_question(self) -> str:
+        return next((t["content"] for t in reversed(self.turns) if t["role"] == "assistant"), "")
+
+    def answer_count(self) -> int:
+        return sum(t["role"] == "user" for t in self.turns)
+
     def add_candidate(self, text: str):
         self.turns.append({"role": "user", "content": text})
 

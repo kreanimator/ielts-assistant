@@ -20,6 +20,21 @@ async def model_name() -> str:
         return config.LLM_MODEL
 
 
+async def complete_json(messages: list[dict], schema: dict) -> dict:
+    """A reply that is guaranteed to match the JSON schema (llama.cpp enforces it while generating)."""
+    payload = {
+        "model": config.LLM_MODEL,
+        "messages": messages,
+        "temperature": 0.2,
+        "chat_template_kwargs": {"enable_thinking": False},
+        "response_format": {"type": "json_schema", "json_schema": {"name": "reply", "schema": schema}},
+    }
+    async with httpx.AsyncClient(timeout=120) as client:
+        response = await client.post(f"{config.LLM_URL}/chat/completions", json=payload)
+        response.raise_for_status()
+        return json.loads(response.json()["choices"][0]["message"]["content"])
+
+
 async def stream_reply(messages: list[dict]) -> AsyncIterator[str]:
     """Yields the reply text piece by piece as the model writes it."""
     payload = {

@@ -79,7 +79,8 @@ without any books.
 1. ✅ Backend voice loop: mic → transcript → LLM reply → spoken reply
 2. ✅ Flutter web UI: dialogue window with avatar, live transcript, mode and voice picker
    (free conversation, Part 1, Part 3; Part 2 and the full exam come with milestone 7)
-3. Live analyst and corrections panel
+3. ✅ Live analyst and corrections panel (grammar, vocabulary, fluency, coherence;
+   can be hidden until the session ends)
 4. Measured fluency features and pronunciation scoring
 5. Final report with band estimates; history and progress charts
 6. Book importer

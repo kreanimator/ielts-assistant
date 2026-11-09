@@ -6,9 +6,9 @@ after each session you get a report with an estimated band for each IELTS criter
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
-> **Status:** milestones 1–2 work: voice conversation with an AI examiner in the
-> web app, in three training modes. Live corrections come next. See
-> [docs/PLAN.md](docs/PLAN.md).
+> **Status:** milestones 1–3 work: voice conversation with an AI examiner in the
+> web app, in three training modes, with corrections on each answer.
+> Pronunciation scoring comes next. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Run it
 

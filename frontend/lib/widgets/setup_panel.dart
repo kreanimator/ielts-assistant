@@ -13,6 +13,8 @@ class SetupPanel extends StatelessWidget {
     required this.enabled,
     required this.onMode,
     required this.onVoice,
+    required this.liveCorrections,
+    required this.onLiveCorrections,
   });
 
   final Options options;
@@ -20,6 +22,8 @@ class SetupPanel extends StatelessWidget {
   final TextEditingController topic;
   final bool enabled;
   final ValueChanged<String> onMode, onVoice;
+  final bool liveCorrections; // can be changed during a session too
+  final ValueChanged<bool> onLiveCorrections;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +70,14 @@ class SetupPanel extends StatelessWidget {
           ],
           onSelected: (id) => id == null ? null : onVoice(id),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Live corrections'),
+          subtitle: const Text('Off: see them only when the session ends, like in the real test.'),
+          value: liveCorrections,
+          onChanged: onLiveCorrections,
+        ),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.memory),

@@ -11,12 +11,16 @@ class DialoguePanel extends StatefulWidget {
     required this.examinerName,
     required this.female,
     required this.onStart,
+    required this.liveCorrections,
+    this.headerAction,
   });
 
   final Session session;
   final String examinerName;
   final bool female;
   final VoidCallback onStart;
+  final bool liveCorrections; // false: hide feedback until the session ends
+  final Widget? headerAction; // shown top right, e.g. a button that opens the corrections
 
   @override
   State<DialoguePanel> createState() => _DialoguePanelState();
@@ -61,7 +65,7 @@ class _DialoguePanelState extends State<DialoguePanel> {
       listenable: widget.session,
       builder: (context, _) {
         final s = widget.session;
-        return Column(
+        final panel = Column(
           children: [
             const SizedBox(height: 24),
             Avatar(phase: s.phase, female: widget.female),
@@ -87,7 +91,7 @@ class _DialoguePanelState extends State<DialoguePanel> {
                   : ListView(
                       controller: _scroll,
                       padding: const EdgeInsets.all(16),
-                      children: [for (final m in s.messages) _Bubble(m)],
+                      children: [for (final m in s.messages) _Bubble(m, showFeedback: widget.liveCorrections || !s.active)],
                     ),
             ),
             _LiveTranscript(session: s),
@@ -107,31 +111,51 @@ class _DialoguePanelState extends State<DialoguePanel> {
             ),
           ],
         );
+        final action = widget.headerAction;
+        if (action == null) return panel;
+        return Stack(children: [panel, Positioned(top: 8, right: 8, child: action)]);
       },
     );
   }
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble(this.message);
+  const _Bubble(this.message, {required this.showFeedback});
 
   final Message message;
+  final bool showFeedback;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     final examiner = message.fromExaminer;
+    final feedback = message.feedback;
     return Align(
       alignment: examiner ? Alignment.centerLeft : Alignment.centerRight,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 560),
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: examiner ? colors.surfaceContainerHighest : colors.primaryContainer,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: SelectableText(message.text),
+      child: Column(
+        crossAxisAlignment: examiner ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+        children: [
+          Container(
+            constraints: const BoxConstraints(maxWidth: 560),
+            margin: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: examiner ? theme.colorScheme.surfaceContainerHighest : theme.colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: SelectableText(message.text),
+          ),
+          if (!examiner && showFeedback && feedback != null)
+            Text(
+              switch (feedback.corrections.length) {
+                0 => 'No mistakes found',
+                1 => '1 correction',
+                final n => '$n corrections',
+              },
+              style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }

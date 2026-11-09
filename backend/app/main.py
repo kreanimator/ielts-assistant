@@ -16,6 +16,9 @@ WebSocket protocol on /ws:
                    JSON  {"type": "examiner", "text": "..."}        one sentence of the reply
                    bytes PCM16 mono 24 kHz speech for that sentence
                    JSON  {"type": "examiner_done"}                  reply finished; client resumes the mic
+                   JSON  {"type": "feedback", "answer": 0,          feedback on answer number 0, 1, ...
+                          "corrections": [{"category", "original", "better", "why"}],
+                          "good": "...", "tip": "..."}             arrives a few seconds after the answer
 """
 import asyncio
 import logging
@@ -29,6 +32,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config, llm
+from .analyst import analyse
 from .examiner import MODES, Conversation
 from .stt import Transcriber
 from .tts import Speaker
@@ -71,6 +75,7 @@ def dev_page():
 @app.websocket("/ws")
 async def session(ws: WebSocket):
     await ws.accept()
+    feedback_tasks = set()  # analyses still running
     try:
         start = await ws.receive_json()
         voice = start.get("voice") if start.get("voice") in config.VOICES else config.DEFAULT_VOICE
@@ -95,8 +100,14 @@ async def session(ws: WebSocket):
                 if not text:
                     continue
                 await ws.send_json({"type": "transcript", "text": text})
+                question = conversation.last_question()
                 conversation.add_candidate(text)
+                answer = conversation.answer_count() - 1
                 await examiner_turn(ws, conversation, voice)
+                # Analyse while the examiner's reply plays, so it never delays the examiner.
+                task = asyncio.create_task(send_feedback(ws, answer, question, text))
+                feedback_tasks.add(task)
+                task.add_done_callback(feedback_tasks.discard)
                 turns.reset()
 
             heard = turns.current()
@@ -108,6 +119,17 @@ async def session(ws: WebSocket):
                 partial = asyncio.create_task(send_partial(ws, heard))
     except WebSocketDisconnect:
         log.info("session closed")
+    finally:
+        for task in feedback_tasks:
+            task.cancel()
+
+
+async def send_feedback(ws: WebSocket, answer: int, question: str, text: str):
+    try:
+        feedback = await analyse(question, text)
+        await ws.send_json({"type": "feedback", "answer": answer, **feedback})
+    except Exception:  # feedback is extra: never end the session because of it
+        log.exception("feedback failed")
 
 
 async def transcribe(audio: np.ndarray) -> str:

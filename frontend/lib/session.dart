@@ -15,6 +15,27 @@ class Message {
 
   final bool fromExaminer;
   String text;
+  AnswerFeedback? feedback; // for the candidate's answers, once the analyst has checked it
+}
+
+class Correction {
+  Correction.fromJson(Map<String, dynamic> json)
+      : category = json['category'],
+        original = json['original'],
+        better = json['better'],
+        why = json['why'];
+
+  final String category, original, better, why;
+}
+
+class AnswerFeedback {
+  AnswerFeedback.fromJson(Map<String, dynamic> json)
+      : corrections = [for (final c in json['corrections']) Correction.fromJson(c)],
+        good = json['good'],
+        tip = json['tip'];
+
+  final List<Correction> corrections;
+  final String good, tip;
 }
 
 /// One practice session: talks to the backend over /ws (protocol in backend/app/main.py).
@@ -29,6 +50,10 @@ class Session extends ChangeNotifier {
   Timer? _turnTimer;
 
   bool get active => phase != Phase.idle && phase != Phase.error;
+
+  List<Message> get answers => [for (final m in messages) if (!m.fromExaminer) m];
+
+  int get correctionCount => answers.fold(0, (sum, a) => sum + (a.feedback?.corrections.length ?? 0));
 
   Future<void> start({required String mode, required String voice, String? topic}) async {
     messages.clear();
@@ -101,6 +126,10 @@ class Session extends ChangeNotifier {
         partial = '';
         messages.add(Message(fromExaminer: false, text: message['text']));
         _setPhase(Phase.thinking);
+      case 'feedback':
+        final index = message['answer'] as int;
+        if (index < answers.length) answers[index].feedback = AnswerFeedback.fromJson(message);
+        notifyListeners();
     }
   }
 

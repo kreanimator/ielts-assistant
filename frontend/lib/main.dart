@@ -40,6 +40,7 @@ class _HomePageState extends State<HomePage> {
   String? _loadError;
   String _mode = 'part1';
   String _voice = 'bf_emma';
+  bool _live = true; // show corrections during the session
 
   @override
   void initState() {
@@ -79,12 +80,7 @@ class _HomePageState extends State<HomePage> {
     if (options == null) return Scaffold(body: Center(child: _loading()));
 
     final voice = options.voices.firstWhere((v) => v.id == _voice);
-    final dialogue = DialoguePanel(
-      session: _session,
-      examinerName: voice.name,
-      female: voice.gender == 'female',
-      onStart: _start,
-    );
+    final corrections = CorrectionsPanel(session: _session, live: _live);
     final setup = ListenableBuilder(
       listenable: _session,
       builder: (context, _) => SetupPanel(
@@ -95,31 +91,42 @@ class _HomePageState extends State<HomePage> {
         enabled: !_session.active,
         onMode: (id) => setState(() => _mode = id),
         onVoice: (id) => setState(() => _voice = id),
+        liveCorrections: _live,
+        onLiveCorrections: (on) => setState(() => _live = on),
       ),
     );
+    DialoguePanel dialogue({Widget? headerAction}) => DialoguePanel(
+          session: _session,
+          examinerName: voice.name,
+          female: voice.gender == 'female',
+          onStart: _start,
+          liveCorrections: _live,
+          headerAction: headerAction,
+        );
 
     return LayoutBuilder(builder: (context, constraints) {
-      if (constraints.maxWidth < 760) {
-        // Phone width: setup in a drawer.
-        return Scaffold(
-          appBar: AppBar(title: const Text('IELTS Speaking')),
-          drawer: Drawer(child: SafeArea(child: setup)),
-          body: SafeArea(child: dialogue),
-        );
-      }
+      final wide = constraints.maxWidth >= 1100;
+      final phone = constraints.maxWidth < 760;
+      // Without room for the side panel, corrections open from a button.
+      final body = wide ? dialogue() : dialogue(headerAction: _CorrectionsButton(session: _session, live: _live));
       return Scaffold(
+        appBar: phone ? AppBar(title: const Text('IELTS Speaking')) : null,
+        drawer: phone ? Drawer(child: SafeArea(child: setup)) : null,
+        endDrawer: wide ? null : Drawer(width: 360, child: SafeArea(child: corrections)),
         body: SafeArea(
-          child: Row(
-            children: [
-              SizedBox(width: 320, child: setup),
-              const VerticalDivider(width: 1),
-              Expanded(child: dialogue),
-              if (constraints.maxWidth >= 1100) ...[
-                const VerticalDivider(width: 1),
-                const SizedBox(width: 320, child: CorrectionsPanel()),
-              ],
-            ],
-          ),
+          child: phone
+              ? body
+              : Row(
+                  children: [
+                    SizedBox(width: 320, child: setup),
+                    const VerticalDivider(width: 1),
+                    Expanded(child: body),
+                    if (wide) ...[
+                      const VerticalDivider(width: 1),
+                      SizedBox(width: 340, child: corrections),
+                    ],
+                  ],
+                ),
         ),
       );
     });
@@ -135,4 +142,25 @@ class _HomePageState extends State<HomePage> {
       ],
     );
   }
+}
+
+/// Opens the corrections drawer; the badge counts corrections you can see.
+class _CorrectionsButton extends StatelessWidget {
+  const _CorrectionsButton({required this.session, required this.live});
+
+  final Session session;
+  final bool live;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: session,
+        builder: (context, _) {
+          final count = live || !session.active ? session.correctionCount : 0;
+          return IconButton(
+            tooltip: 'Corrections',
+            onPressed: () => Scaffold.of(context).openEndDrawer(),
+            icon: Badge(label: Text('$count'), isLabelVisible: count > 0, child: const Icon(Icons.spellcheck)),
+          );
+        },
+      );
 }

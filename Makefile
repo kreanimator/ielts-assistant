@@ -32,7 +32,7 @@ llm: models/$(LLM_FILE) $(LLAMA_DIR)/llama-server
 
 # Build the Flutter web app; the backend serves it at http://127.0.0.1:8000
 frontend:
-	cd frontend && flutter build web --release --no-web-resources-cdn
+	cd frontend && flutter build web --release --no-web-resources-cdn --pwa-strategy=none
 
 # Flutter with hot reload at http://127.0.0.1:5000 (the backend must be running too).
 frontend-dev:
