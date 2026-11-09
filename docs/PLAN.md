@@ -7,7 +7,7 @@ The defaults fit one 16 GB GPU (developed on an RTX 4060 Ti 16 GB with 32 GB RAM
 | Model | VRAM |
 |---|---|
 | Whisper large-v3-turbo (int8) | ~2 GB |
-| wav2vec2 phoneme model (milestone 4) | ~1.3 GB |
+| wav2vec2 phoneme model (fp16) | ~0.7 GB |
 | Qwen3.5-9B Q5_K_M, 8k context | ~7 GB |
 | Kokoro-82M | <1 GB |
 
@@ -81,7 +81,8 @@ without any books.
    (free conversation, Part 1, Part 3; Part 2 and the full exam come with milestone 7)
 3. ✅ Live analyst and corrections panel (grammar, vocabulary, fluency, coherence;
    can be hidden until the session ends)
-4. Measured fluency features and pronunciation scoring
+4. ✅ Measured fluency (speed, pauses, fillers, repetitions) and pronunciation scoring
+   (phoneme recognition aligned with the CMU dictionary; flags sound patterns like /θ/ said as /s/)
 5. Final report with band estimates; history and progress charts
 6. Book importer
 7. Full exam mode with strict timing

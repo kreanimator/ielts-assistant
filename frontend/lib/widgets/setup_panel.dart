@@ -65,9 +65,7 @@ class SetupPanel extends StatelessWidget {
           expandedInsets: EdgeInsets.zero,
           label: const Text('Examiner voice'),
           initialSelection: voice,
-          dropdownMenuEntries: [
-            for (final v in options.voices) DropdownMenuEntry(value: v.id, label: v.label),
-          ],
+          dropdownMenuEntries: [for (final v in options.voices) DropdownMenuEntry(value: v.id, label: v.label)],
           onSelected: (id) => id == null ? null : onVoice(id),
         ),
         const SizedBox(height: 8),

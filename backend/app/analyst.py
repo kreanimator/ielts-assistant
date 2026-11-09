@@ -39,14 +39,16 @@ Return:
 - corrections: up to 4 real mistakes or clearly weak choices, most important first.
   - category: "grammar" (tense, agreement, articles, prepositions, word order),
     "vocabulary" (wrong word, collocation, or a basic word where a better one fits),
-    "fluency" (unfinished sentences, many fillers or repetitions),
-    "coherence" (off-topic, unclear, or missing linking words).
+    "fluency" (unfinished sentences or confusing restarts),
+    "coherence" (unclear ideas or missing linking words).
   - original: the exact words from the answer, copied without changes.
   - better: the corrected or improved version of those words.
   - why: the rule in at most 12 simple words.
-  List each mistake once. Do not invent mistakes. Fillers like "um" or "uh" are
-  normal in speech: mention them only if there are many. If the answer has no real
-  mistakes, return an empty list.
+  Only correct what a native speaker would not say. If a native speaker could say it
+  the same way, it is not a mistake: do not suggest changes of style or taste.
+  Never comment on fillers ("um", "uh"), speed or pronunciation: they are measured
+  separately. List each mistake once. If the answer has no real mistakes, return an
+  empty list.
 - good: one specific thing the candidate did well, at most 20 words.
 - tip: one practical way to reach a higher IELTS band with this answer, at most 20
   words, for example adding a reason or an example, or a better linking word."""

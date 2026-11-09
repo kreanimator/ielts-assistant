@@ -19,8 +19,12 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  # Bundled so the app never downloads fonts from the internet (SIL OFL 1.1, see assets/fonts/OFL.txt).
+  # Bundled so the app never downloads fonts from the internet (SIL OFL 1.1, see assets/fonts/OFL-*.txt).
+  # Noto Sans is the fallback for the phonetic (IPA) symbols that Roboto lacks.
   fonts:
+    - family: NotoSans
+      fonts:
+        - asset: assets/fonts/NotoSans-Regular.ttf
     - family: Roboto
       fonts:
         - asset: assets/fonts/Roboto-Regular.ttf

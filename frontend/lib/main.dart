@@ -12,18 +12,19 @@ class App extends StatelessWidget {
   const App({super.key});
 
   ThemeData _theme(Brightness brightness) => ThemeData(
-        fontFamily: 'Roboto',
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF3F51B5), brightness: brightness),
-      );
+    fontFamily: 'Roboto',
+    fontFamilyFallback: const ['NotoSans'], // phonetic symbols
+    colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF3F51B5), brightness: brightness),
+  );
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'IELTS Speaking Assistant',
-        debugShowCheckedModeBanner: false,
-        theme: _theme(Brightness.light),
-        darkTheme: _theme(Brightness.dark),
-        home: const HomePage(),
-      );
+    title: 'IELTS Speaking Assistant',
+    debugShowCheckedModeBanner: false,
+    theme: _theme(Brightness.light),
+    darkTheme: _theme(Brightness.dark),
+    home: const HomePage(),
+  );
 }
 
 class HomePage extends StatefulWidget {
@@ -96,40 +97,43 @@ class _HomePageState extends State<HomePage> {
       ),
     );
     DialoguePanel dialogue({Widget? headerAction}) => DialoguePanel(
-          session: _session,
-          examinerName: voice.name,
-          female: voice.gender == 'female',
-          onStart: _start,
-          liveCorrections: _live,
-          headerAction: headerAction,
-        );
+      session: _session,
+      examinerName: voice.name,
+      female: voice.gender == 'female',
+      onStart: _start,
+      liveCorrections: _live,
+      headerAction: headerAction,
+    );
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final wide = constraints.maxWidth >= 1100;
-      final phone = constraints.maxWidth < 760;
-      // Without room for the side panel, corrections open from a button.
-      final body = wide ? dialogue() : dialogue(headerAction: _CorrectionsButton(session: _session, live: _live));
-      return Scaffold(
-        appBar: phone ? AppBar(title: const Text('IELTS Speaking')) : null,
-        drawer: phone ? Drawer(child: SafeArea(child: setup)) : null,
-        endDrawer: wide ? null : Drawer(width: 360, child: SafeArea(child: corrections)),
-        body: SafeArea(
-          child: phone
-              ? body
-              : Row(
-                  children: [
-                    SizedBox(width: 320, child: setup),
-                    const VerticalDivider(width: 1),
-                    Expanded(child: body),
-                    if (wide) ...[
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 1100;
+        final phone = constraints.maxWidth < 760;
+        // Without room for the side panel, corrections open from a button.
+        final body = wide
+            ? dialogue()
+            : dialogue(
+                headerAction: _CorrectionsButton(session: _session, live: _live),
+              );
+        return Scaffold(
+          appBar: phone ? AppBar(title: const Text('IELTS Speaking')) : null,
+          drawer: phone ? Drawer(child: SafeArea(child: setup)) : null,
+          endDrawer: wide ? null : Drawer(width: 360, child: SafeArea(child: corrections)),
+          body: SafeArea(
+            child: phone
+                ? body
+                : Row(
+                    children: [
+                      SizedBox(width: 320, child: setup),
                       const VerticalDivider(width: 1),
-                      SizedBox(width: 340, child: corrections),
+                      Expanded(child: body),
+                      if (wide) ...[const VerticalDivider(width: 1), SizedBox(width: 340, child: corrections)],
                     ],
-                  ],
-                ),
-        ),
-      );
-    });
+                  ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _loading() {
@@ -137,7 +141,10 @@ class _HomePageState extends State<HomePage> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(padding: const EdgeInsets.all(16), child: Text(_loadError!, textAlign: TextAlign.center)),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(_loadError!, textAlign: TextAlign.center),
+        ),
         FilledButton(onPressed: _load, child: const Text('Try again')),
       ],
     );
@@ -153,14 +160,14 @@ class _CorrectionsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-        listenable: session,
-        builder: (context, _) {
-          final count = live || !session.active ? session.correctionCount : 0;
-          return IconButton(
-            tooltip: 'Corrections',
-            onPressed: () => Scaffold.of(context).openEndDrawer(),
-            icon: Badge(label: Text('$count'), isLabelVisible: count > 0, child: const Icon(Icons.spellcheck)),
-          );
-        },
+    listenable: session,
+    builder: (context, _) {
+      final count = live || !session.active ? session.correctionCount : 0;
+      return IconButton(
+        tooltip: 'Corrections',
+        onPressed: () => Scaffold.of(context).openEndDrawer(),
+        icon: Badge(label: Text('$count'), isLabelVisible: count > 0, child: const Icon(Icons.spellcheck)),
       );
+    },
+  );
 }

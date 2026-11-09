@@ -32,16 +32,15 @@ class CorrectionsPanel extends StatelessWidget {
         } else if (answers.isEmpty) {
           body = _Note(
             icon: Icons.spellcheck,
-            text: 'After each answer, feedback on grammar, vocabulary, fluency and coherence '
-                'appears here. Pronunciation feedback comes in the next milestone.',
+            text:
+                'After each answer, your speaking speed, pauses and pronunciation, and feedback '
+                'on grammar, vocabulary, fluency and coherence appear here.',
           );
         } else {
           body = Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              children: [
-                for (var i = answers.length - 1; i >= 0; i--) _AnswerCard(number: i + 1, answer: answers[i]),
-              ],
+              children: [for (var i = answers.length - 1; i >= 0; i--) _AnswerCard(number: i + 1, answer: answers[i])],
             ),
           );
         }
@@ -109,12 +108,15 @@ class _AnswerCard extends StatelessWidget {
               style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
             ),
             const SizedBox(height: 8),
+            if (answer.delivery != null) _DeliveryView(answer.delivery!),
             if (feedback == null)
-              const Row(children: [
-                SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2)),
-                SizedBox(width: 8),
-                Text('Checking your answer…'),
-              ])
+              const Row(
+                children: [
+                  SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                  SizedBox(width: 8),
+                  Text('Checking your answer…'),
+                ],
+              )
             else ...[
               if (feedback.corrections.isEmpty)
                 _Line(icon: Icons.check_circle_outline, color: Colors.green.shade700, text: 'No mistakes found.'),
@@ -125,6 +127,77 @@ class _AnswerCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Measured numbers: amber when outside the range of a fluent IELTS answer.
+class _DeliveryView extends StatelessWidget {
+  const _DeliveryView(this.delivery);
+
+  final Delivery delivery;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final d = delivery;
+    String plural(int n, String word) => '$n $word${n == 1 ? '' : 's'}';
+    final stats = [
+      if (d.wpm != null) (text: '${d.wpm} words/min', warn: d.wpm! < 90 || d.wpm! > 180),
+      if (d.pauses != null)
+        (text: d.pauses == 0 ? 'No long pauses' : plural(d.pauses!, 'long pause'), warn: d.pauses! >= 3),
+      if (d.fillers != null && d.fillers! > 0)
+        (text: plural(d.fillers!, 'filler'), warn: d.words != null && d.fillers! / d.words! > 0.06),
+      if (d.repetitions != null && d.repetitions! > 0)
+        (text: plural(d.repetitions!, 'repetition'), warn: d.repetitions! >= 3),
+      if (d.pronunciation != null)
+        (text: 'Pronunciation ${(d.pronunciation! * 100).round()}%', warn: d.pronunciation! < 0.9),
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [for (final s in stats) _Stat(text: s.text, warn: s.warn)],
+          ),
+          if (d.sounds.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Sounds to practise: ${d.sounds.map(_describe).join(', ')}',
+              style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
+            ),
+          ],
+          for (final w in d.unclearWords)
+            Text('${w.word}: heard /${w.heard}/, expected /${w.expected}/', style: theme.textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+}
+
+String _describe(({String expected, String heard, int count}) s) =>
+    s.heard.isEmpty ? '/${s.expected}/ left out (${s.count}×)' : '/${s.expected}/ said as /${s.heard}/ (${s.count}×)';
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.text, required this.warn});
+
+  final String text;
+  final bool warn;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final color = warn ? Colors.amber.shade900 : colors.onSurfaceVariant;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        border: Border.all(color: warn ? Colors.amber.shade700 : colors.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(text, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: color)),
     );
   }
 }
@@ -148,22 +221,29 @@ class _CorrectionView extends StatelessWidget {
             style: theme.textTheme.labelSmall?.copyWith(color: color, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 2),
-          Text.rich(TextSpan(children: [
+          Text.rich(
             TextSpan(
-              text: correction.original,
-              style: TextStyle(color: theme.colorScheme.error, decoration: TextDecoration.lineThrough),
+              children: [
+                TextSpan(
+                  text: correction.original,
+                  style: TextStyle(color: theme.colorScheme.error, decoration: TextDecoration.lineThrough),
+                ),
+                // An icon, not the "→" character: Roboto has no arrow, and a missing
+                // character would make Flutter download a fallback font.
+                const WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6),
+                    child: Icon(Icons.arrow_forward, size: 14),
+                  ),
+                ),
+                TextSpan(
+                  text: correction.better,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
             ),
-            // An icon, not the "→" character: Roboto has no arrow, and a missing
-            // character would make Flutter download a fallback font.
-            const WidgetSpan(
-              alignment: PlaceholderAlignment.middle,
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 6),
-                child: Icon(Icons.arrow_forward, size: 14),
-              ),
-            ),
-            TextSpan(text: correction.better, style: const TextStyle(fontWeight: FontWeight.w700)),
-          ])),
+          ),
           Text(correction.why, style: theme.textTheme.bodySmall),
         ],
       ),
@@ -180,14 +260,14 @@ class _Line extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(width: 8),
-            Expanded(child: Text(text, style: Theme.of(context).textTheme.bodyMedium)),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.only(top: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text, style: Theme.of(context).textTheme.bodyMedium)),
+      ],
+    ),
+  );
 }

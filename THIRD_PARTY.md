@@ -25,7 +25,7 @@ Before adding a dependency, check its license and add it here.
 | Larger LLM option | Qwen3.6-35B-A3B | Apache-2.0 | https://huggingface.co/Qwen/Qwen3.6-35B-A3B |
 | Text to speech | Kokoro-82M | Apache-2.0 | https://huggingface.co/hexgrad/Kokoro-82M |
 | English tagger for TTS | spaCy en_core_web_sm | MIT | https://github.com/explosion/spacy-models |
-| Phoneme recognition (milestone 4) | wav2vec2-xlsr-53-espeak-cv-ft | Apache-2.0 | https://huggingface.co/facebook/wav2vec2-xlsr-53-espeak-cv-ft |
+| Phoneme recognition (pronunciation) | wav2vec2-lv-60-espeak-cv-ft | Apache-2.0 | https://huggingface.co/facebook/wav2vec2-lv-60-espeak-cv-ft |
 
 ## Data
 
@@ -50,7 +50,7 @@ Before adding a dependency, check its license and add it here.
 | Planned: database | SQLite | Public domain |
 | Planned: PDF text and OCR | pypdf, pdfplumber, Tesseract | BSD-3-Clause, MIT, Apache-2.0 |
 | Frontend | Flutter, Dart, packages `http` and `web` | BSD-3-Clause |
-| Frontend font | Roboto (bundled in `frontend/assets/fonts`) | SIL OFL 1.1 |
+| Frontend font | Roboto, Noto Sans (bundled in `frontend/assets/fonts`) | SIL OFL 1.1 |
 
 Smaller transitive dependencies are all MIT, BSD, Apache-2.0, ISC, PSF or MPL-2.0
 (certifi, tqdm). `make license-check` lists them.

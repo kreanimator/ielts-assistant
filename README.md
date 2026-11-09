@@ -6,9 +6,9 @@ after each session you get a report with an estimated band for each IELTS criter
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
-> **Status:** milestones 1–3 work: voice conversation with an AI examiner in the
-> web app, in three training modes, with corrections on each answer.
-> Pronunciation scoring comes next. See [docs/PLAN.md](docs/PLAN.md).
+> **Status:** milestones 1–4 work: voice conversation with an AI examiner in the
+> web app, in three training modes, with corrections, fluency numbers and a
+> pronunciation check on each answer. Session reports with band scores come next. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Run it
 
@@ -24,7 +24,7 @@ make run        # in a second terminal: the backend
 
 Open http://127.0.0.1:8000, allow the microphone, choose a training mode and
 press **Start**. Use headphones if you can. Whisper and Kokoro download their
-models (about 2 GB) the first time the backend starts. After that, nothing is
+models (about 3.5 GB) the first time the backend starts. After that, nothing is
 downloaded: the app's fonts and renderer are bundled.
 
 For frontend work with hot reload, run `make frontend-dev` and open

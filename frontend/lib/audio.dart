@@ -14,8 +14,7 @@ extension type _IeltsAudio._(JSObject _) implements JSObject {
 /// Microphone and speaker. The Web Audio code is in web/audio.js.
 class BrowserAudio {
   /// Starts the mic; [onPcm] gets PCM16 mono 16 kHz chunks.
-  static Future<void> startMic(void Function(JSArrayBuffer pcm) onPcm) =>
-      _audio.startMic(onPcm.toJS).toDart;
+  static Future<void> startMic(void Function(JSArrayBuffer pcm) onPcm) => _audio.startMic(onPcm.toJS).toDart;
 
   /// Queues PCM16 mono 24 kHz speech.
   static void play(JSArrayBuffer pcm) => _audio.play(pcm);

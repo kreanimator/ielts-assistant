@@ -19,6 +19,10 @@ WebSocket protocol on /ws:
                    JSON  {"type": "feedback", "answer": 0,          feedback on answer number 0, 1, ...
                           "corrections": [{"category", "original", "better", "why"}],
                           "good": "...", "tip": "..."}             arrives a few seconds after the answer
+                   JSON  {"type": "delivery", "answer": 0,          measured right after the answer
+                          "fluency": {"seconds", "words", "wpm", "pauses", "longest_pause", "fillers", "repetitions"},
+                          "pronunciation": {"score": 0..1, "words": [{"word", "expected", "heard"}],
+                                            "sounds": [{"expected": "θ", "heard": "s", "count": 2}]}}
 """
 import asyncio
 import logging
@@ -31,10 +35,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, llm
+from . import config, fluency, llm
 from .analyst import analyse
 from .examiner import MODES, Conversation
-from .stt import Transcriber
+from .pronunciation import PronunciationScorer
+from .stt import Transcriber, Transcript
 from .tts import Speaker
 from .vad import SAMPLE_RATE, TurnDetector
 
@@ -48,6 +53,7 @@ app.add_middleware(CORSMiddleware, allow_origin_regex=r"http://(localhost|127\.0
 transcriber = Transcriber(config.WHISPER_MODEL, config.DEVICE)
 transcribe_lock = asyncio.Lock()  # one Whisper call at a time
 speaker = Speaker(config.DEVICE)
+pronunciation_scorer = PronunciationScorer(config.DEVICE)
 
 DEV_PAGE = Path(__file__).parent / "static" / "index.html"
 FRONTEND = Path(__file__).parents[2] / "frontend" / "build" / "web"
@@ -75,7 +81,13 @@ def dev_page():
 @app.websocket("/ws")
 async def session(ws: WebSocket):
     await ws.accept()
-    feedback_tasks = set()  # analyses still running
+    tasks = set()  # feedback still being worked out
+
+    def in_background(work):
+        task = asyncio.create_task(work)
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+
     try:
         start = await ws.receive_json()
         voice = start.get("voice") if start.get("voice") in config.VOICES else config.DEFAULT_VOICE
@@ -95,7 +107,8 @@ async def session(ws: WebSocket):
                 if partial:
                     await partial  # let it finish, so it can't arrive after the final text
                     partial = None
-                text = await transcribe(event)
+                transcript = await transcribe(event, with_words=True)
+                text = transcript.text
                 log.info("candidate: %s", text)
                 if not text:
                     continue
@@ -103,11 +116,10 @@ async def session(ws: WebSocket):
                 question = conversation.last_question()
                 conversation.add_candidate(text)
                 answer = conversation.answer_count() - 1
+                in_background(send_delivery(ws, answer, event, transcript))
                 await examiner_turn(ws, conversation, voice)
                 # Analyse while the examiner's reply plays, so it never delays the examiner.
-                task = asyncio.create_task(send_feedback(ws, answer, question, text))
-                feedback_tasks.add(task)
-                task.add_done_callback(feedback_tasks.discard)
+                in_background(send_feedback(ws, answer, question, text))
                 turns.reset()
 
             heard = turns.current()
@@ -120,7 +132,7 @@ async def session(ws: WebSocket):
     except WebSocketDisconnect:
         log.info("session closed")
     finally:
-        for task in feedback_tasks:
+        for task in tasks:
             task.cancel()
 
 
@@ -132,13 +144,27 @@ async def send_feedback(ws: WebSocket, answer: int, question: str, text: str):
         log.exception("feedback failed")
 
 
-async def transcribe(audio: np.ndarray) -> str:
+async def send_delivery(ws: WebSocket, answer: int, audio: np.ndarray, transcript: Transcript):
+    """Measured fluency and pronunciation: fast, so it arrives right after the answer."""
+    try:
+        pronunciation = await asyncio.to_thread(pronunciation_scorer.score, audio, transcript.text)
+        await ws.send_json({
+            "type": "delivery",
+            "answer": answer,
+            "fluency": fluency.measure(transcript.words),
+            "pronunciation": pronunciation,
+        })
+    except Exception:
+        log.exception("delivery check failed")
+
+
+async def transcribe(audio: np.ndarray, with_words: bool = False) -> Transcript:
     async with transcribe_lock:
-        return await asyncio.to_thread(transcriber.transcribe, audio)
+        return await asyncio.to_thread(transcriber.transcribe, audio, with_words)
 
 
 async def send_partial(ws: WebSocket, audio: np.ndarray):
-    text = await transcribe(audio)
+    text = (await transcribe(audio)).text
     if text:
         await ws.send_json({"type": "partial", "text": text})
 

@@ -49,14 +49,14 @@ class _DialoguePanelState extends State<DialoguePanel> {
   }
 
   String _status(Session s) => switch (s.phase) {
-        Phase.idle => 'Ready when you are',
-        Phase.connecting => 'Starting…',
-        Phase.examinerSpeaking => '${widget.examinerName} is speaking',
-        Phase.yourTurn => 'Your turn: speak when you are ready',
-        Phase.hearing => 'Listening…',
-        Phase.thinking => '${widget.examinerName} is thinking',
-        Phase.error => s.error,
-      };
+    Phase.idle => 'Ready when you are',
+    Phase.connecting => 'Starting…',
+    Phase.examinerSpeaking => '${widget.examinerName} is speaking',
+    Phase.yourTurn => 'Your turn: speak when you are ready',
+    Phase.hearing => 'Listening…',
+    Phase.thinking => '${widget.examinerName} is thinking',
+    Phase.error => s.error,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +91,9 @@ class _DialoguePanelState extends State<DialoguePanel> {
                   : ListView(
                       controller: _scroll,
                       padding: const EdgeInsets.all(16),
-                      children: [for (final m in s.messages) _Bubble(m, showFeedback: widget.liveCorrections || !s.active)],
+                      children: [
+                        for (final m in s.messages) _Bubble(m, showFeedback: widget.liveCorrections || !s.active),
+                      ],
                     ),
             ),
             _LiveTranscript(session: s),
@@ -113,7 +115,12 @@ class _DialoguePanelState extends State<DialoguePanel> {
         );
         final action = widget.headerAction;
         if (action == null) return panel;
-        return Stack(children: [panel, Positioned(top: 8, right: 8, child: action)]);
+        return Stack(
+          children: [
+            panel,
+            Positioned(top: 8, right: 8, child: action),
+          ],
+        );
       },
     );
   }
@@ -146,14 +153,11 @@ class _Bubble extends StatelessWidget {
             child: SelectableText(message.text),
           ),
           if (!examiner && showFeedback && feedback != null)
-            Text(
-              switch (feedback.corrections.length) {
-                0 => 'No mistakes found',
-                1 => '1 correction',
-                final n => '$n corrections',
-              },
-              style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
+            Text(switch (feedback.corrections.length) {
+              0 => 'No mistakes found',
+              1 => '1 correction',
+              final n => '$n corrections',
+            }, style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           const SizedBox(height: 8),
         ],
       ),

@@ -16,23 +16,49 @@ class Message {
   final bool fromExaminer;
   String text;
   AnswerFeedback? feedback; // for the candidate's answers, once the analyst has checked it
+  Delivery? delivery; // measured fluency and pronunciation of the answer
+}
+
+/// Measured numbers for one answer. Any of them can be missing for very short answers.
+class Delivery {
+  Delivery.fromJson(Map<String, dynamic> json)
+    : wpm = json['fluency']['wpm'],
+      words = json['fluency']['words'],
+      pauses = json['fluency']['pauses'],
+      longestPause = (json['fluency']['longest_pause'] as num?)?.toDouble(),
+      fillers = json['fluency']['fillers'],
+      repetitions = json['fluency']['repetitions'],
+      pronunciation = (json['pronunciation']['score'] as num?)?.toDouble(),
+      unclearWords = [
+        for (final w in json['pronunciation']['words'])
+          (word: w['word'] as String, expected: w['expected'] as String, heard: w['heard'] as String),
+      ],
+      sounds = [
+        for (final s in json['pronunciation']['sounds'])
+          (expected: s['expected'] as String, heard: s['heard'] as String, count: s['count'] as int),
+      ];
+
+  final int? wpm, words, pauses, fillers, repetitions;
+  final double? longestPause, pronunciation;
+  final List<({String word, String expected, String heard})> unclearWords;
+  final List<({String expected, String heard, int count})> sounds; // heard '' = left out
 }
 
 class Correction {
   Correction.fromJson(Map<String, dynamic> json)
-      : category = json['category'],
-        original = json['original'],
-        better = json['better'],
-        why = json['why'];
+    : category = json['category'],
+      original = json['original'],
+      better = json['better'],
+      why = json['why'];
 
   final String category, original, better, why;
 }
 
 class AnswerFeedback {
   AnswerFeedback.fromJson(Map<String, dynamic> json)
-      : corrections = [for (final c in json['corrections']) Correction.fromJson(c)],
-        good = json['good'],
-        tip = json['tip'];
+    : corrections = [for (final c in json['corrections']) Correction.fromJson(c)],
+      good = json['good'],
+      tip = json['tip'];
 
   final List<Correction> corrections;
   final String good, tip;
@@ -51,7 +77,10 @@ class Session extends ChangeNotifier {
 
   bool get active => phase != Phase.idle && phase != Phase.error;
 
-  List<Message> get answers => [for (final m in messages) if (!m.fromExaminer) m];
+  List<Message> get answers => [
+    for (final m in messages)
+      if (!m.fromExaminer) m,
+  ];
 
   int get correctionCount => answers.fold(0, (sum, a) => sum + (a.feedback?.corrections.length ?? 0));
 
@@ -129,6 +158,10 @@ class Session extends ChangeNotifier {
       case 'feedback':
         final index = message['answer'] as int;
         if (index < answers.length) answers[index].feedback = AnswerFeedback.fromJson(message);
+        notifyListeners();
+      case 'delivery':
+        final index = message['answer'] as int;
+        if (index < answers.length) answers[index].delivery = Delivery.fromJson(message);
         notifyListeners();
     }
   }

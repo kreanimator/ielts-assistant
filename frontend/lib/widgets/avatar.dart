@@ -95,10 +95,14 @@ class _FacePainter extends CustomPainter {
     final r = size.width / 2;
     final c = Offset(r, r);
     canvas.drawCircle(c, r, Paint()..color = background);
-    canvas.drawCircle(c, r - 3, Paint()
-      ..color = ring
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4 + mouth * 3);
+    canvas.drawCircle(
+      c,
+      r - 3,
+      Paint()
+        ..color = ring
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4 + mouth * 3,
+    );
 
     final head = r * 0.55;
     final face = c.translate(0, r * 0.06);
@@ -165,5 +169,9 @@ class _FacePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_FacePainter old) =>
-      old.mouth != mouth || old.blink != blink || old.ring != ring || old.female != female || old.background != background;
+      old.mouth != mouth ||
+      old.blink != blink ||
+      old.ring != ring ||
+      old.female != female ||
+      old.background != background;
 }
