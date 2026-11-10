@@ -11,7 +11,7 @@ The defaults fit one 16 GB GPU (developed on an RTX 4060 Ti 16 GB with 32 GB RAM
 | Qwen3.5-9B Q5_K_M, 8k context | ~7 GB |
 | Kokoro-82M | <1 GB |
 
-On smaller GPUs, use a smaller quantization (`make llm LLM_FILE=Qwen3.5-9B-Q4_K_M.gguf`)
+On smaller GPUs or 8 GB Macs, use the 4B model (`make install LLM=4B`, then `make start LLM=4B`) or a smaller quantization (`make llm LLM_FILE=Qwen3.5-9B-Q4_K_M.gguf`)
 and a smaller Whisper model. If the analyst needs more quality later, the next step
 is Qwen3.6-35B-A3B (MoE) with part of the experts in system RAM.
 
@@ -105,3 +105,6 @@ without any books.
 10. ✅ Drills: sound drills (repeat sentences full of one sound, see how many came out right)
    and language drills (questions that need one structure, checked first by the analyst),
    with the sounds you miss most suggested first
+11. ✅ Easy install on Linux and Apple Silicon Macs (the Mac path is not yet tested on a real Mac): `make install` (Python from uv, models,
+   llama.cpp build for the computer, the web app built or downloaded) and `make start`
+   (both servers, the browser, Ctrl+C stops all); the device is chosen automatically

@@ -22,6 +22,7 @@ Before adding a dependency, check its license and add it here.
 | Voice activity detection | Silero VAD | MIT | https://github.com/snakers4/silero-vad |
 | Speech to text | Whisper large-v3-turbo (CTranslate2 conversion) | MIT | https://huggingface.co/dropbox-dash/faster-whisper-large-v3-turbo (formerly mobiuslabsgmbh; original: https://huggingface.co/openai/whisper-large-v3-turbo) |
 | Examiner and analyst LLM | Qwen3.5-9B, GGUF Q5_K_M | Apache-2.0 | https://huggingface.co/unsloth/Qwen3.5-9B-GGUF (original: https://huggingface.co/Qwen/Qwen3.5-9B) |
+| Smaller LLM option (`LLM=4B`) | Qwen3.5-4B, GGUF Q5_K_M | Apache-2.0 | https://huggingface.co/unsloth/Qwen3.5-4B-GGUF (original: https://huggingface.co/Qwen/Qwen3.5-4B) |
 | Larger LLM option | Qwen3.6-35B-A3B | Apache-2.0 | https://huggingface.co/Qwen/Qwen3.6-35B-A3B |
 | Text to speech | Kokoro-82M | Apache-2.0 | https://huggingface.co/hexgrad/Kokoro-82M |
 | English tagger for TTS | spaCy en_core_web_sm | MIT | https://github.com/explosion/spacy-models |
@@ -40,7 +41,8 @@ Before adding a dependency, check its license and add it here.
 
 | Purpose | Component | License |
 |---|---|---|
-| LLM server | llama.cpp (prebuilt Vulkan release, downloaded by `make llm`) | MIT |
+| LLM server | llama.cpp (prebuilt CUDA, Vulkan or macOS Metal release, downloaded by `make install`) | MIT |
+| Python installer | uv (installed by `make install` if missing; a tool, not part of the app) | MIT or Apache-2.0 |
 | Speech to text | faster-whisper, CTranslate2 | MIT |
 | Voice activity detection | silero-vad, onnxruntime | MIT |
 | ML framework | PyTorch | BSD-3-Clause |

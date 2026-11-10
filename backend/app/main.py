@@ -81,7 +81,7 @@ app.add_middleware(
 )
 app.include_router(history.router)
 
-transcriber = Transcriber(config.WHISPER_MODEL, config.DEVICE)
+transcriber = Transcriber(config.WHISPER_MODEL, config.WHISPER_DEVICE)
 transcribe_lock = asyncio.Lock()  # one Whisper call at a time
 speaker = Speaker(config.DEVICE)
 pronunciation_scorer = PronunciationScorer(config.DEVICE)

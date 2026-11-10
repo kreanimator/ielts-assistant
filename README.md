@@ -16,28 +16,49 @@ Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
 ## Run it
 
-You need Linux, Python 3.12, Flutter 3.38+, a GPU with about 10 GB of free memory
-(developed on an RTX 4060 Ti 16 GB) and Chrome or Edge.
+Works on **Linux** with an NVIDIA GPU (about 10 GB of free GPU memory; developed on an
+RTX 4060 Ti 16 GB) and on **Macs with Apple Silicon** (M1 or newer, 16 GB of memory or
+more; 8 GB with the smaller LLM). You also need `git`, `make` and `curl` (on a Mac:
+`xcode-select --install`), Chrome or Edge, and about 15 GB of disk space.
 
 ```bash
-make setup      # Python environment (once, a few minutes)
-make frontend   # build the web app (after each frontend change)
-make llm        # downloads the LLM (6.6 GB) and llama.cpp once, then runs the LLM server
-make run        # in a second terminal: the backend
+git clone https://github.com/kreanimator/ielts-speaking-assistant.git
+cd ielts-speaking-assistant
+make install    # once: Python 3.12, the models (about 10 GB) and the web app
+make start      # starts everything and opens http://127.0.0.1:8000; Ctrl+C stops it
 ```
 
-Open http://127.0.0.1:8000, allow the microphone, choose a training mode and
-press **Start**. Use headphones if you can. Whisper and Kokoro download their
-models (about 3.5 GB) the first time the backend starts. After that, nothing is
-downloaded: the app's fonts and renderer are bundled.
+Allow the microphone, choose a training mode and press **Start**. Use headphones if
+you can. After the install nothing is downloaded: the app's fonts and renderer are
+bundled. If something does not start, the servers' output is in `data/logs/`.
 
-For frontend work with hot reload, run `make frontend-dev` and open
-http://127.0.0.1:5000. A plain developer test page is at http://127.0.0.1:8000/dev.
+What `make install` sets up for your computer:
 
-`make llm` uses llama.cpp's **CUDA** build when it finds an NVIDIA driver 570 or
-newer, and the **Vulkan** build otherwise (any recent NVIDIA, AMD or Intel driver).
-To choose yourself: `make llm LLAMA_BUILD=ubuntu-vulkan-x64`. With NVIDIA driver 580,
-prefer CUDA: the Vulkan build can leave the GPU at idle clocks and run 10 times slower.
+| | Linux + NVIDIA | Mac (Apple Silicon) |
+|---|---|---|
+| LLM (llama.cpp) | CUDA build (driver 570 or newer), else Vulkan | Metal build |
+| Speech models (Kokoro, pronunciation) | GPU | Apple GPU |
+| Whisper (speech to text) | `large-v3-turbo` on the GPU | `small.en` on the CPU |
+
+- **Python** comes from [uv](https://docs.astral.sh/uv/), which is installed first if
+  you don't have it. The project's Python stays in `.venv/`.
+- **The web app** is built with Flutter if you have it (3.38 or newer); otherwise the
+  build of the latest `main` is downloaded from the project's releases.
+- **Smaller LLM:** with 8 GB of memory, or if answers come slowly, use the 4B model:
+  `make install LLM=4B`, then `make start LLM=4B`. The band calibration was done
+  with the 9B model, so bands from the 4B model are less certain.
+- **Faster Whisper on a fast Mac:** `WHISPER_MODEL=large-v3-turbo make start` is
+  more accurate, but slower on the CPU.
+- **Other Linux GPUs:** AMD and Intel GPUs use the Vulkan build of llama.cpp; the
+  speech models then run on the CPU. Without a GPU: `make install LLAMA_BUILD=ubuntu-x64`
+  (slow). Windows is not supported; WSL2 may work.
+- **With NVIDIA driver 580**, prefer the CUDA build (the default): the Vulkan build can
+  leave the GPU at idle clocks and run 10 times slower.
+
+The servers can also be started on their own, each in its own terminal: `make llm`
+(the LLM server) and `make run` (the backend). For frontend work with hot reload, run
+`make frontend-dev` and open http://127.0.0.1:5000. A plain developer test page is at
+http://127.0.0.1:8000/dev.
 
 ### Practise with your own IELTS books
 
