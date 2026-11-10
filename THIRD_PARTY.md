@@ -33,6 +33,8 @@ Before adding a dependency, check its license and add it here.
 | Purpose | Data | License |
 |---|---|---|
 | Pronunciation dictionary | CMUdict, downloaded through nltk | BSD-2-Clause |
+| Calibrating the Pronunciation band (optional, never committed) | speechocean762, Zhang et al., Interspeech 2021, https://www.openslr.org/101 | CC BY 4.0 |
+| Checking the other bands (optional, never committed) | Speak & Improve Corpus 2025, Cambridge University Press & Assessment, https://researchdatasets.cambridge.org/datasets/speak-and-improve-corpus-2025. Transcripts and scores only, used with the local LLM | Speak & Improve Corpus licence: noncommercial use, registration required, no redistribution |
 
 ## Main libraries and tools
 

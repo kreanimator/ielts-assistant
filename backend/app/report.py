@@ -7,8 +7,8 @@
 - Overall: the average of the four, rounded like IELTS does (to the nearest half band,
   with .25 and .75 rounded up).
 
-These are practice estimates, not official scores. The pronunciation mapping is a
-first guess, to be calibrated with sample answers that have examiner bands.
+These are practice estimates, not official scores. Both kinds of band are checked
+against human ratings: scripts/calibrate_pronunciation.py and scripts/calibrate_bands.py.
 """
 import math
 import re
@@ -18,6 +18,13 @@ import numpy as np
 from . import llm
 
 FILLERS = {"um", "umm", "uh", "er", "erm", "ah", "hmm", "mm"}
+# The LLM's bands, corrected to match human examiners: band = slope * llm_band + offset.
+# Fitted with scripts/calibrate_bands.py --fit on 60 Speak & Improve dev tests and checked
+# on the held-out eval set (see the README). Uncorrected, the LLM is too low by about a
+# third of a band for Fluency and a whole band for the others, at every level. Only that
+# shift is corrected: a steeper slope fitted the tests a little better but would inflate
+# strong speakers beyond the range the tests cover.
+CORRECTION = {"fluency_coherence": (1.0, 0.3), "lexical_resource": (1.0, 1.0), "grammar": (1.0, 1.1)}
 MIN_ANSWERS, MIN_WORDS = 3, 80
 BANDS = [b / 2 for b in range(2, 19)]  # 1.0 .. 9.0
 
@@ -43,37 +50,56 @@ SCHEMA = {
 }
 
 # The band descriptors in brief, in our own words.
-PROMPT = """You are a strict, experienced IELTS Speaking examiner. Estimate the candidate's
-bands for three criteria from the session transcript and the measured numbers.
+PROMPT = """You are an experienced IELTS Speaking examiner. Estimate the candidate's bands
+for three criteria from the session transcript and the measured numbers. Be fair: neither
+generous nor harsh. Pick the band whose description fits best, and judge each criterion on
+its own (they often differ by half a band or more).
 
 Fluency and Coherence
-- 8-9: speaks at length with only rare hesitation; ideas fully developed and linked.
-- 7: speaks at length without noticeable effort; some hesitation; flexible linking words.
-- 6: willing to speak at length but loses coherence at times through repetition,
+- 9: fluent with only rare, content-related hesitation; fully coherent, well developed.
+- 8: fluent; hesitation mostly to find ideas, not words; develops topics coherently.
+- 7: speaks at length without noticeable effort; some hesitation or self-correction;
+  uses a range of linking words and discourse markers flexibly.
+- 6: willing to speak at length, though sometimes loses coherence through repetition,
   self-correction or hesitation; uses a range of linking words, not always well.
-- 5: keeps going but relies on repetition, self-correction and slow speech; overuses
-  simple linking words.
-- 4: cannot respond without noticeable pauses; simple sentences, repetitive linking.
+- 5: keeps going but relies on repetition, self-correction or slow speech; overuses a
+  few linking words; simple speech is fluent, complex ideas cause problems.
+- 4: cannot respond without noticeable pauses; may speak slowly; links simple sentences
+  with repeated simple connectives; coherence breaks down at times.
+- 3: long pauses; limited ability to link simple sentences; gives only simple answers.
 Lexical Resource
-- 8-9: wide, precise vocabulary, natural idioms and collocations.
-- 7: flexible vocabulary on many topics, some less common words and collocations,
-  some errors of word choice.
-- 6: enough vocabulary to discuss topics at length and make meaning clear despite
-  some wrong choices; can paraphrase.
-- 5: manages familiar topics with limited flexibility; paraphrases with mixed success.
-- 4: basic vocabulary for familiar topics; frequent errors of word choice.
+- 9: full flexibility and precision on all topics; idiomatic language used naturally.
+- 8: wide, flexible vocabulary that conveys precise meaning; less common and idiomatic
+  words used skilfully, with only occasional slips.
+- 7: flexible vocabulary on a range of topics; some less common and idiomatic words and
+  collocations; some wrong choices; paraphrases well.
+- 6: wide enough vocabulary to discuss topics at length and make meaning clear despite
+  some inappropriate choices; generally paraphrases successfully.
+- 5: manages familiar and unfamiliar topics but with limited flexibility; paraphrases
+  with mixed success.
+- 4: enough vocabulary for familiar topics, only basic meaning on unfamiliar ones;
+  frequent wrong word choices; rarely paraphrases.
+- 3: simple vocabulary for personal information; not enough for less familiar topics.
 Grammatical Range and Accuracy
-- 8-9: wide range of structures, mostly error-free sentences.
-- 7: range of complex structures with some flexibility; frequent error-free sentences.
-- 6: mix of simple and complex structures with limited flexibility; frequent errors
-  in complex structures that rarely reduce understanding.
-- 5: basic sentence forms reasonably accurate; few complex structures, usually with errors.
-- 4: basic forms with frequent errors; rare subordinate clauses.
+- 9: full range of structures, natural and accurate apart from native-like slips.
+- 8: wide range of structures used flexibly; most sentences error-free; only occasional
+  errors.
+- 7: a range of complex structures with some flexibility; frequent error-free sentences,
+  though some errors remain.
+- 6: a mix of simple and complex structures, with limited flexibility; frequent errors
+  in complex structures, which rarely make the meaning unclear.
+- 5: basic sentence forms with reasonable accuracy; a limited range of complex
+  structures, which usually contain errors.
+- 4: basic sentence forms and some correct simple sentences; subordinate structures are
+  rare; errors are frequent.
+- 3: attempts basic forms with limited success; relies on memorised phrases.
 
 Rules:
-- Most learners are between 5 and 7. Do not inflate. Give 8 or more only for near-native speech.
-- A fluent speaker usually says 110-170 words per minute with few long pauses.
-- Very short answers cannot show range: they limit Fluency, Lexical Resource and Grammar.
+- The transcript comes from speech recognition. "um", restarts and missing punctuation
+  are normal in speech: count them only for Fluency, never as grammar or word errors.
+- A fluent speaker usually says 110-170 words per minute.
+- Judge what the candidate shows. Short answers show less range, so judge the range
+  shown in the longer answers.
 - evidence: up to 3 short quotes of the candidate's own words that justify the band
   (a measured number only when no quote fits).
 - summary: one or two sentences, addressed to the candidate ("You ...").
@@ -102,9 +128,12 @@ def round_band(value: float) -> float:
 
 
 def pronunciation_band(score: float) -> float:
-    """First guess, not yet calibrated: measured accuracy → band. Capped at 8.5,
-    because stress and intonation are not measured."""
-    points = [(0.70, 4.0), (0.80, 5.5), (0.90, 6.5), (0.95, 7.5), (0.98, 8.5)]
+    """Measured accuracy → band, calibrated against expert ratings of 1,340 adult learner
+    sentences (speechocean762, see scripts/calibrate_pronunciation.py): each point is the
+    median app score at one expert level. Below 0.45 the experts' levels 3 to 5 score
+    alike, so the band stays at 4. Capped at 8.5, because stress and intonation are not
+    measured."""
+    points = [(0.45, 4.0), (0.535, 5.375), (0.67, 6.125), (0.84, 7.0), (0.93, 8.0), (0.98, 8.5)]
     band = np.interp(score, [p[0] for p in points], [p[1] for p in points])
     return round_band(float(band))
 
@@ -130,7 +159,8 @@ def measured(answers: list[dict]) -> dict:
         "minutes": round(seconds / 60, 1),
         "wpm": round(words / seconds * 60) if seconds else None,
         "words_per_answer": round(words / len(fluency)) if fluency else None,
-        "long_pauses_per_minute": round(sum(f["pauses"] for f in fluency) / seconds * 60, 1) if seconds else None,
+        "long_pauses_per_minute": round(sum(f["pauses"] for f in fluency) / seconds * 60, 1)
+        if seconds and all("pauses" in f for f in fluency) else None,
         "fillers_per_100_words": round(sum(f["fillers"] for f in fluency) / words * 100, 1) if words else None,
         "repetitions_per_100_words": round(sum(f["repetitions"] for f in fluency) / words * 100, 1) if words else None,
         "grammar_errors_per_100_words": round(sum(c["category"] == "grammar" for c in corrections) / words * 100, 1) if words else None,
@@ -177,6 +207,10 @@ async def build(session: dict) -> dict:
     if stats["pronunciation"] is not None:
         criteria.append(pronunciation_criterion(stats))
     for c in criteria:
+        if c["id"] in CORRECTION:
+            slope, offset = CORRECTION[c["id"]]
+            c["llm_band"] = c["band"]
+            c["band"] = min(9.0, max(1.0, slope * c["band"] + offset))
         c["band"] = round_band(c["band"])
     report.update(
         criteria=criteria,

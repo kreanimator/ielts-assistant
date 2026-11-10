@@ -57,8 +57,8 @@ average, rounded to the nearest half band.
    phoneme accuracy.
 2. **Rubric judgment:** the LLM scores the transcript and the features against
    the public band descriptors, and must quote evidence from the answers.
-3. **Calibration:** sample answers with known examiner bands (from your own
-   books, kept in `data/private/`) are used to check and tune the scorer.
+3. **Calibration:** public datasets with expert scores check and tune the scorer
+   (see "How realistic are the bands?" in the README).
 
 ## Your books
 
@@ -99,3 +99,6 @@ without any books.
    tests), and practice by letter: pick or roll a letter, get a random topic that starts with it.
    The idea comes from the A-Z index of eslconversationquestions.com; no questions are copied
    from it, the examiner writes them
+9. ✅ Calibrated scores: the Pronunciation band is fitted to expert ratings (speechocean762),
+   and the other bands are checked against examiners' scores (Speak & Improve Corpus 2025);
+   `make calibrate-pronunciation` and `make calibrate-bands` repeat the checks

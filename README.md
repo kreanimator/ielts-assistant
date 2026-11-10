@@ -6,12 +6,14 @@ after each session you get a report with an estimated band for each IELTS criter
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
-> **Status:** milestones 1–7 work: voice conversation with an AI examiner in the
+> **Status:** milestones 1–9 work: voice conversation with an AI examiner in the
 > web app, the full exam with real timing, practice of each part on its own
-> (including the Part 2 cue card with a preparation minute), corrections, fluency
-> numbers and a pronunciation check on each answer, a band report at the end of
-> each session, a history with your recordings and progress charts, and real test
-> questions imported from your own books. Drill mode is still planned. See [docs/PLAN.md](docs/PLAN.md).
+> (including the Part 2 cue card with a preparation minute), topics by letter,
+> corrections, fluency numbers and a
+> pronunciation check on each answer, a band report at the end of each session
+> (checked against human examiners' scores), a history with your recordings and
+> progress charts, and real test questions imported from your own books. Drill mode
+> is still planned. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Run it
 
@@ -33,9 +35,10 @@ downloaded: the app's fonts and renderer are bundled.
 For frontend work with hot reload, run `make frontend-dev` and open
 http://127.0.0.1:5000. A plain developer test page is at http://127.0.0.1:8000/dev.
 
-The LLM server uses llama.cpp's **Vulkan** build, because it works with any recent
-NVIDIA, AMD or Intel driver. With NVIDIA driver 570 or newer you can use the
-faster CUDA build: `make llm LLAMA_BUILD=ubuntu-cuda-12.8-x64`.
+`make llm` uses llama.cpp's **CUDA** build when it finds an NVIDIA driver 570 or
+newer, and the **Vulkan** build otherwise (any recent NVIDIA, AMD or Intel driver).
+To choose yourself: `make llm LLAMA_BUILD=ubuntu-vulkan-x64`. With NVIDIA driver 580,
+prefer CUDA: the Vulkan build can leave the GPU at idle clocks and run 10 times slower.
 
 ### Practise with your own IELTS books
 
@@ -80,6 +83,35 @@ No questions are copied from that site: the examiner writes its own.
 
 Settings such as the voice or the end-of-turn pause are environment variables;
 see [backend/app/config.py](backend/app/config.py).
+
+## How realistic are the bands?
+
+The bands are checked against scores that human experts gave, using two public
+datasets. Neither is included in this repository: download them yourself into
+`data/private/calibration/` (git-ignored) to repeat the checks.
+
+| Criterion | Checked against | Result on held-out data |
+|---|---|---|
+| Pronunciation | [speechocean762](https://www.openslr.org/101) (CC BY 4.0): 5,000 English sentences by learners, each scored by five experts. 61 adult speakers held out | On average 0.16 bands too low, 0.57 bands off per speaker. (The first, uncalibrated mapping was 1.27 bands too low.) |
+| Fluency and Coherence, Lexical Resource, Grammatical Range and Accuracy | [Speak & Improve Corpus 2025](https://researchdatasets.cambridge.org/datasets/speak-and-improve-corpus-2025) (Cambridge University Press & Assessment; free after registration, noncommercial licence, no redistribution): spontaneous learner speech with examiner scores aligned to CEFR | Overall: on average 0.09 bands too low, 0.58 bands off per test; within half a band of the examiners in 53% of 60 held-out tests and within one band in 82%. (Before calibration the LLM was 0.8 bands too low, and squeezed everyone between 4.5 and 5.5.) |
+
+```bash
+make calibrate-pronunciation          # downloads speechocean762 (about 500 MB) the first time
+make calibrate-bands SET=eval N=60    # needs the Speak & Improve files and the LLM server
+```
+
+Limits to keep in mind:
+
+- Speak & Improve scores are holistic CEFR levels, not IELTS bands. They are
+  converted with the official IELTS–CEFR alignment (B1 = 4–5, B2 = 5.5–6.5,
+  C1 = 7–8), which is itself approximate, so differences under half a band are noise.
+- The LLM's bands follow the examiners' only moderately (correlation 0.67): the
+  average is right, but a single session can be a band off, and very weak or very
+  strong speakers are pulled a little toward the middle. Look at the trend over
+  several sessions rather than one report.
+- speechocean762 is read-aloud speech from Mandarin speakers; free speech and other
+  accents may score a little differently.
+- Stress and intonation are not measured yet, so Pronunciation is capped at 8.5.
 
 ## Features (planned)
 

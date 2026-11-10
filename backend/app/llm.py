@@ -1,4 +1,5 @@
 """Streams chat replies from any OpenAI-compatible server."""
+import asyncio
 import json
 import re
 from collections.abc import AsyncIterator
@@ -30,7 +31,11 @@ async def complete_json(messages: list[dict], schema: dict) -> dict:
         "response_format": {"type": "json_schema", "json_schema": {"name": "reply", "schema": schema}},
     }
     async with httpx.AsyncClient(timeout=300) as client:  # long: the server may be busy with a chat
-        response = await client.post(f"{config.LLM_URL}/chat/completions", json=payload)
+        for attempt in range(2):  # once more if the server was full (its context is shared by all requests)
+            response = await client.post(f"{config.LLM_URL}/chat/completions", json=payload)
+            if response.status_code < 500 or attempt:
+                break
+            await asyncio.sleep(2)
         response.raise_for_status()
         return json.loads(response.json()["choices"][0]["message"]["content"])
 
