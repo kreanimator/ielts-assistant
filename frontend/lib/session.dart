@@ -139,7 +139,15 @@ class Session extends ChangeNotifier {
 
   int get correctionCount => answers.fold(0, (sum, a) => sum + (a.feedback?.corrections.length ?? 0));
 
-  Future<void> start({required String mode, required String voice, String? topic, BookTest? test, String? drill}) async {
+  Future<void> start({
+    required String mode,
+    required String voice,
+    String? topic,
+    BookTest? test,
+    String? drill,
+    String? esl,
+    String? level,
+  }) async {
     messages.clear();
     partial = '';
     id = null;
@@ -165,6 +173,8 @@ class Session extends ChangeNotifier {
           'book': test?.bookId,
           'test': test?.number,
           'drill': drill,
+          'esl': esl,
+          'level': level,
         }).toJS,
       );
     }).toJS;

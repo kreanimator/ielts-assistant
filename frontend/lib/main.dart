@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import 'api.dart';
@@ -43,6 +45,9 @@ class _HomePageState extends State<HomePage> {
   List<BookTest> _tests = []; // imported from your books
   List<Topic> _topics = [];
   List<Drill> _drills = [];
+  List<EslTopic> _cards = []; // the "By letter" topic cards
+  String? _card; // EslTopic.slug: the card dealt for the chosen letter
+  String _level = 'mixed';
   String? _drill; // Drill.id
   String? _test; // BookTest.key, or null for questions made up by the examiner
   String? _loadError;
@@ -75,7 +80,9 @@ class _HomePageState extends State<HomePage> {
       final tests = await fetchBookTests();
       final topics = await fetchTopics();
       final drills = await fetchDrills();
+      final cards = await fetchEslTopics();
       setState(() {
+        _cards = cards;
         _drills = drills;
         _drill ??= drills.firstOrNull?.id;
         _tests = tests;
@@ -104,12 +111,14 @@ class _HomePageState extends State<HomePage> {
       topic: topic.isEmpty ? null : topic,
       test: _chosenTest,
       drill: _mode == 'drill' ? _drill : null,
+      esl: _mode == 'letter' ? (_card ?? (_cards.isEmpty ? null : _cards[Random().nextInt(_cards.length)].slug)) : null,
+      level: _level,
     );
   }
 
   /// The chosen book test, when the mode can use one.
   BookTest? get _chosenTest {
-    if (_mode == 'free' || _mode == 'drill') return null;
+    if (_mode == 'free' || _mode == 'drill' || _mode == 'letter') return null;
     return _tests.where((t) => t.key == _test).firstOrNull;
   }
 
@@ -133,6 +142,11 @@ class _HomePageState extends State<HomePage> {
         drills: _drills,
         drill: _drills.where((d) => d.id == _drill).firstOrNull,
         onDrill: (id) => setState(() => _drill = id),
+        cards: _cards,
+        card: _cards.where((c) => c.slug == _card).firstOrNull,
+        onCard: (slug) => setState(() => _card = slug),
+        level: _level,
+        onLevel: (level) => setState(() => _level = level),
         test: _chosenTest,
         onTest: (key) => setState(() => _test = key),
         enabled: !_session.active && _session.phase != Phase.ending,

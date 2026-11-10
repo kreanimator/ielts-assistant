@@ -27,7 +27,7 @@ else
 endif
 LLAMA_DIR = tools/llama-$(LLAMA_VERSION)-$(LLAMA_BUILD)
 
-.PHONY: install start setup models app-models llm frontend frontend-dev run books license-check \
+.PHONY: install start setup models app-models llm frontend frontend-dev run books esl-topics license-check \
 	calibrate-pronunciation calibrate-bands check-platform
 
 # Everything in one go: Python environment, models, llama.cpp and the web app.
@@ -101,6 +101,11 @@ run:
 # They are saved in data/private/books/ (git-ignored). Never commit them.
 books:
 	PYTHONPATH=backend $(PYTHON) -m app.books $(BOOKS)
+
+# Download the topic cards of eslconversationquestions.com for the "By letter" mode, once
+# (about 2.5 minutes). For your own practice only: they are saved in data/private/esl/.
+esl-topics:
+	PYTHONPATH=backend $(PYTHON) -m app.esl
 
 # Check the Pronunciation band against experts' scores (speechocean762, CC BY 4.0, about 500 MB).
 CALIBRATION = data/private/calibration

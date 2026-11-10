@@ -6,9 +6,9 @@ after each session you get a report with an estimated band for each IELTS criter
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
-> **Status:** milestones 1–13 work: a one-command install on Linux and Apple Silicon Macs, voice conversation with an AI examiner in the
+> **Status:** milestones 1–14 work: a one-command install on Linux and Apple Silicon Macs, voice conversation with an AI examiner in the
 > web app, the full exam with real timing, practice of each part on its own
-> (including the Part 2 cue card with a preparation minute), topics by letter,
+> (including the Part 2 cue card with a preparation minute), topic cards by letter,
 > drills for weak sounds and structures, corrections, fluency numbers and a
 > pronunciation and intonation check on each answer, a band report at the end of each session
 > (checked against human examiners' scores), a history with your recordings and
@@ -92,14 +92,28 @@ you type. **Part 2 · Long turn** practises the long turn on its own, and there 
 may start before the minute is over. The times can be changed for practice; see
 `PART1_SECONDS` and the settings below it in [backend/app/config.py](backend/app/config.py).
 
+### By letter
+
+**By letter** practises with the topic cards of
+[eslconversationquestions.com](https://www.eslconversationquestions.com/english-conversation-questions/topics/):
+choose a letter (or roll a random one) and you are dealt a random topic that starts
+with it, such as A: *Advice*. The examiner asks eight of that topic's questions, word
+for word, from easy to hard (or all at one level, if you choose one), reacts to each
+answer and asks for more when an answer is short. Download the cards once:
+
+```bash
+make esl-topics    # 141 topics, about 2.5 minutes, saved in data/private/esl/
+```
+
+The site's terms allow copying its free questions for your own lessons, with a link to
+the source, but not publishing them as a collection. So the questions are downloaded
+to your computer for your own practice, are never part of this repository, and each
+card links to its page on the site. Thanks to ESL Conversation Questions for them.
+
 ### Topics
 
-The topic field suggests topics as you type: the app's own A–Z list and the topics
-of your imported tests. The **A–Z** button opens a letter picker: choose a letter
-(or roll a random one) and you get a random topic that starts with it. The idea of
-practising by letter comes from the A–Z topic index at
-[eslconversationquestions.com](https://www.eslconversationquestions.com/english-conversation-questions/topics/).
-No questions are copied from that site: the examiner writes its own.
+In the other modes, the topic field suggests topics as you type: the app's own A–Z
+list and the topics of your imported tests.
 
 Settings such as the voice or the end-of-turn pause are environment variables;
 see [backend/app/config.py](backend/app/config.py).

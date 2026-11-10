@@ -96,9 +96,7 @@ without any books.
    no live corrections; the report at the end), and Part 2 as its own practice mode. Timing is
    kept on the server, so a slow browser cannot stretch it
 8. ✅ Topics: suggestions while you type (our own A-Z list plus the topics of your imported
-   tests), and practice by letter: pick or roll a letter, get a random topic that starts with it.
-   The idea comes from the A-Z index of eslconversationquestions.com; no questions are copied
-   from it, the examiner writes them
+   tests). (Its first letter picker only filled the topic field; item 14 replaced it.)
 9. ✅ Calibrated scores: the Pronunciation band is fitted to expert ratings (speechocean762),
    and the other bands are checked against examiners' scores (Speak & Improve Corpus 2025);
    `make calibrate-pronunciation` and `make calibrate-bands` repeat the checks
@@ -114,3 +112,6 @@ without any books.
 13. ✅ Band accuracy checked on 168 held-out tests (MAE 0.72, no bias overall). Averaging
    several judgements and mixing in measured numbers were tried and did not help reliably;
    the report retries an LLM reply that is cut off or fails
+14. ✅ By letter: choose or roll a letter, get a random topic card from
+   eslconversationquestions.com (downloaded once with `make esl-topics` into data/private/,
+   never committed), and the examiner asks eight of its questions word for word

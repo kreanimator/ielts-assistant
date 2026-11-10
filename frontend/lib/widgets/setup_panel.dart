@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:web/web.dart' as web;
 
 import '../api.dart';
 
@@ -17,6 +18,11 @@ class SetupPanel extends StatelessWidget {
     required this.drills,
     required this.drill,
     required this.onDrill,
+    required this.cards,
+    required this.card,
+    required this.onCard,
+    required this.level,
+    required this.onLevel,
     required this.test,
     required this.onTest,
     required this.enabled,
@@ -35,6 +41,11 @@ class SetupPanel extends StatelessWidget {
   final List<Drill> drills;
   final Drill? drill; // the chosen drill, in drill mode
   final ValueChanged<String> onDrill;
+  final List<EslTopic> cards; // the "By letter" topic cards
+  final EslTopic? card; // the one dealt for the chosen letter
+  final ValueChanged<String> onCard;
+  final String level; // mixed, or one of the site's levels
+  final ValueChanged<String> onLevel;
   final BookTest? test; // the chosen one, if any
   final ValueChanged<String?> onTest;
   final bool enabled;
@@ -76,12 +87,16 @@ class SetupPanel extends StatelessWidget {
           const SizedBox(height: 16),
           _DrillPicker(drills: drills, drill: drill, enabled: enabled, onDrill: onDrill),
         ],
-        if (mode != 'free' && mode != 'drill') ...[
+        if (mode == 'letter') ...[
+          const SizedBox(height: 16),
+          _CardPicker(cards: cards, card: card, onCard: onCard, level: level, onLevel: onLevel, enabled: enabled),
+        ],
+        if (mode != 'free' && mode != 'drill' && mode != 'letter') ...[
           const SizedBox(height: 16),
           _QuestionsPicker(tests: tests, test: test, mode: mode, enabled: enabled, onTest: onTest),
         ],
-        if (!(mode == 'drill' && (drill?.isSound ?? false))) const SizedBox(height: 16),
-        if (!(mode == 'drill' && (drill?.isSound ?? false)))
+        if (mode != 'letter' && !(mode == 'drill' && (drill?.isSound ?? false))) const SizedBox(height: 16),
+        if (mode != 'letter' && !(mode == 'drill' && (drill?.isSound ?? false)))
           _TopicField(
           controller: topic,
           topics: topics,
@@ -174,7 +189,7 @@ class _QuestionsPicker extends StatelessWidget {
   }
 }
 
-/// The topic: typed, picked from the suggestions, or rolled by letter.
+/// The topic: typed, or picked from the suggestions.
 class _TopicField extends StatefulWidget {
   const _TopicField({required this.controller, required this.topics, required this.enabled, required this.label});
 
@@ -196,14 +211,6 @@ class _TopicFieldState extends State<_TopicField> {
     super.dispose();
   }
 
-  Future<void> _pickByLetter() async {
-    final name = await showDialog<String>(
-      context: context,
-      builder: (_) => _LetterDialog(topics: widget.topics),
-    );
-    if (name != null) widget.controller.text = name;
-  }
-
   @override
   Widget build(BuildContext context) => RawAutocomplete<String>(
     textEditingController: widget.controller,
@@ -220,13 +227,8 @@ class _TopicFieldState extends State<_TopicField> {
       onSubmitted: (_) => onSubmitted(),
       decoration: InputDecoration(
         labelText: widget.label,
-        hintText: 'Type, or pick by letter',
+        hintText: 'Type a topic, or leave it to the examiner',
         border: const OutlineInputBorder(),
-        suffixIcon: IconButton(
-          tooltip: 'Pick a topic by letter',
-          onPressed: widget.enabled && widget.topics.isNotEmpty ? _pickByLetter : null,
-          icon: const Icon(Icons.sort_by_alpha),
-        ),
       ),
     ),
     optionsViewBuilder: (context, onSelected, options) => Align(
@@ -248,86 +250,113 @@ class _TopicFieldState extends State<_TopicField> {
   );
 }
 
-/// A-Z: choose a letter, or roll one, and get a random topic starting with it.
-class _LetterDialog extends StatefulWidget {
-  const _LetterDialog({required this.topics});
+/// By letter: choose a letter, or roll one, and get a random topic card that starts with it.
+class _CardPicker extends StatelessWidget {
+  const _CardPicker({
+    required this.cards,
+    required this.card,
+    required this.onCard,
+    required this.level,
+    required this.onLevel,
+    required this.enabled,
+  });
 
-  final List<Topic> topics;
+  static final _random = Random();
+  static const _levels = {
+    'mixed': 'Mixed, easy to hard',
+    'A2': 'Elementary (A2)',
+    'B1': 'Intermediate (B1)',
+    'B2': 'Upper-intermediate (B2)',
+    'C1': 'Advanced (C1)',
+  };
 
-  @override
-  State<_LetterDialog> createState() => _LetterDialogState();
-}
+  final List<EslTopic> cards;
+  final EslTopic? card;
+  final ValueChanged<String> onCard;
+  final String level;
+  final ValueChanged<String> onLevel;
+  final bool enabled;
 
-class _LetterDialogState extends State<_LetterDialog> {
-  final _random = Random();
-  String? _letter;
-  Topic? _topic;
-
-  Map<String, List<Topic>> get _byLetter {
-    final map = <String, List<Topic>>{};
-    for (final t in widget.topics) {
-      map.putIfAbsent(t.letter, () => []).add(t);
-    }
-    return map;
-  }
-
-  void _choose(String letter) {
-    final options = _byLetter[letter]!;
-    setState(() {
-      _letter = letter;
-      _topic = options[_random.nextInt(options.length)];
-    });
+  void _deal(String letter) {
+    final options = cards.where((c) => c.letter == letter && c.slug != card?.slug).toList();
+    if (options.isEmpty) options.addAll(cards.where((c) => c.letter == letter));
+    onCard(options[_random.nextInt(options.length)].slug);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final byLetter = _byLetter;
-    final letters = byLetter.keys.toList();
-    return AlertDialog(
-      title: const Text('Pick a topic by letter'),
-      content: SizedBox(
-        width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    if (cards.isEmpty) {
+      return Text(
+        'Download the topic cards once (about 2.5 minutes): make esl-topics',
+        style: theme.textTheme.bodySmall,
+      );
+    }
+    final letters = {for (final c in cards) c.letter};
+    final chosen = card;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 4,
+          runSpacing: 4,
           children: [
-            Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: [
-                for (final code in List.generate(26, (i) => String.fromCharCode(65 + i)))
-                  ChoiceChip(
-                    label: Text(code),
-                    selected: code == _letter,
-                    onSelected: byLetter.containsKey(code) ? (_) => _choose(code) : null,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
+            for (final code in List.generate(26, (i) => String.fromCharCode(65 + i)))
+              ChoiceChip(
+                label: Text(code),
+                selected: code == chosen?.letter,
+                onSelected: enabled && letters.contains(code) ? (_) => _deal(code) : null,
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
             OutlinedButton.icon(
-              onPressed: () => _choose(letters[_random.nextInt(letters.length)]),
+              onPressed: enabled ? () => _deal(letters.elementAt(_random.nextInt(letters.length))) : null,
               icon: const Icon(Icons.casino_outlined),
               label: const Text('Random letter'),
             ),
-            const SizedBox(height: 16),
-            if (_topic != null) ...[
-              Text('$_letter: ${_topic!.name}', style: theme.textTheme.titleLarge),
-              Text(
-                '${byLetter[_letter]!.length} topics start with $_letter${_topic!.fromBooks ? ' · from your books' : ''}',
-                style: theme.textTheme.bodySmall,
-              ),
-            ] else
-              Text('Choose a letter, or roll one.', style: theme.textTheme.bodyMedium),
+            const SizedBox(width: 8),
+            if (chosen != null)
+              TextButton(onPressed: enabled ? () => _deal(chosen.letter) : null, child: const Text('Another card')),
           ],
         ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        if (_topic != null) ...[
-          TextButton(onPressed: () => _choose(_letter!), child: const Text('Another')),
-          FilledButton(onPressed: () => Navigator.pop(context, _topic!.name), child: const Text('Use this topic')),
-        ],
+        const SizedBox(height: 8),
+        Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: chosen == null
+                ? Text('Choose a letter, or roll one. Without a card, Start deals a random one.',
+                    style: theme.textTheme.bodyMedium)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(chosen.name, style: theme.textTheme.titleLarge),
+                      Text('8 of its ${chosen.questions} questions, asked by the examiner',
+                          style: theme.textTheme.bodySmall),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                        onPressed: () => web.window.open(chosen.url, '_blank'),
+                        icon: const Icon(Icons.open_in_new, size: 16),
+                        label: const Text('Source: eslconversationquestions.com'),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        DropdownMenu<String>(
+          key: ValueKey(level),
+          enabled: enabled,
+          expandedInsets: EdgeInsets.zero,
+          requestFocusOnTap: false,
+          label: const Text('Question level'),
+          initialSelection: level,
+          dropdownMenuEntries: [for (final e in _levels.entries) DropdownMenuEntry(value: e.key, label: e.value)],
+          onSelected: (value) => value == null ? null : onLevel(value),
+        ),
       ],
     );
   }
