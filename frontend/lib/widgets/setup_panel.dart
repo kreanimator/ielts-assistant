@@ -288,7 +288,7 @@ class _CardPicker extends StatelessWidget {
     final theme = Theme.of(context);
     if (cards.isEmpty) {
       return Text(
-        'Download the topic cards once (about 2.5 minutes): make esl-topics',
+        'The topic cards are not downloaded yet. Run: make esl-topics (about 2.5 minutes)',
         style: theme.textTheme.bodySmall,
       );
     }
