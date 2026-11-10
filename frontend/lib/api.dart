@@ -81,3 +81,19 @@ Future<List<BookTest>> fetchBookTests() async {
       for (final test in book['tests']) BookTest.fromJson(book['id'], book['title'], test),
   ];
 }
+
+/// A topic to talk about: from the app's A-Z list or from your books.
+class Topic {
+  Topic.fromJson(Map<String, dynamic> json) : name = json['name'], fromBooks = json['source'] == 'books';
+
+  final String name;
+  final bool fromBooks;
+
+  String get letter => name.substring(0, 1).toUpperCase();
+}
+
+Future<List<Topic>> fetchTopics() async {
+  final response = await http.get(apiUri('/api/topics'));
+  if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
+  return [for (final t in jsonDecode(utf8.decode(response.bodyBytes))) Topic.fromJson(t)];
+}

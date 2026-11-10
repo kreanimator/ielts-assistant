@@ -69,6 +69,15 @@ you type. **Part 2 · Long turn** practises the long turn on its own, and there 
 may start before the minute is over. The times can be changed for practice; see
 `PART1_SECONDS` and the settings below it in [backend/app/config.py](backend/app/config.py).
 
+### Topics
+
+The topic field suggests topics as you type: the app's own A–Z list and the topics
+of your imported tests. The **A–Z** button opens a letter picker: choose a letter
+(or roll a random one) and you get a random topic that starts with it. The idea of
+practising by letter comes from the A–Z topic index at
+[eslconversationquestions.com](https://www.eslconversationquestions.com/english-conversation-questions/topics/).
+No questions are copied from that site: the examiner writes its own.
+
 Settings such as the voice or the end-of-turn pause are environment variables;
 see [backend/app/config.py](backend/app/config.py).
 

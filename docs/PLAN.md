@@ -95,3 +95,7 @@ without any books.
    to prepare and up to two minutes of talk, cut off at the limit, then a rounding-off question;
    no live corrections; the report at the end), and Part 2 as its own practice mode. Timing is
    kept on the server, so a slow browser cannot stretch it
+8. ✅ Topics: suggestions while you type (our own A-Z list plus the topics of your imported
+   tests), and practice by letter: pick or roll a letter, get a random topic that starts with it.
+   The idea comes from the A-Z index of eslconversationquestions.com; no questions are copied
+   from it, the examiner writes them

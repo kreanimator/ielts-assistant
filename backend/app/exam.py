@@ -102,13 +102,18 @@ async def run(talk, mode: str, name: str, topic: str | None, test: dict | None):
     if mode == "exam":
         await exam(talk, name, topic, test)
     elif mode == "part2":
-        await part2(talk, name, await cue_card(test, topic), exam_mode=False)
+        card = await cue_card(test, topic)
+        if not test:
+            talk.set_topic(card["task"])
+        await part2(talk, name, card, exam_mode=False)
     else:
         await interview(talk, Conversation(mode, name, topic, test))
 
 
 async def exam(talk, name: str, topic: str | None, test: dict | None):
     card = await cue_card(test, topic)  # before Part 1, so the wait is not mid-test
+    if not test:
+        talk.set_topic(card["task"])
 
     await talk.part("Part 1 · Interview")
     start = time.monotonic()

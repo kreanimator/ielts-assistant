@@ -41,6 +41,7 @@ class _HomePageState extends State<HomePage> {
   final _topic = TextEditingController();
   Options? _options;
   List<BookTest> _tests = []; // imported from your books
+  List<Topic> _topics = [];
   String? _test; // BookTest.key, or null for questions made up by the examiner
   String? _loadError;
   String _mode = 'part1';
@@ -70,8 +71,10 @@ class _HomePageState extends State<HomePage> {
     try {
       final options = await fetchOptions();
       final tests = await fetchBookTests();
+      final topics = await fetchTopics();
       setState(() {
         _tests = tests;
+        _topics = topics;
         _options = options;
         if (!options.voices.any((v) => v.id == _voice)) _voice = options.voices.first.id;
         if (!options.modes.any((m) => m.id == _mode)) _mode = options.modes.first.id;
@@ -115,6 +118,7 @@ class _HomePageState extends State<HomePage> {
         voice: _voice,
         topic: _topic,
         tests: _tests,
+        topics: _topics,
         test: _chosenTest,
         onTest: (key) => setState(() => _test = key),
         enabled: !_session.active && _session.phase != Phase.ending,

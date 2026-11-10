@@ -224,7 +224,9 @@ class Session extends ChangeNotifier {
         });
       case 'examiner' when phase != Phase.ending:
         _closeMic(); // also when an answer was cut off at its time limit
-        if (messages.isEmpty || !messages.last.fromExaminer) messages.add(Message(fromExaminer: true));
+        if (messages.isEmpty || !messages.last.fromExaminer || message['new'] == true) {
+          messages.add(Message(fromExaminer: true));
+        }
         messages.last.text = '${messages.last.text} ${message['text']}'.trim();
         _setPhase(Phase.examinerSpeaking);
       case 'examiner_done':

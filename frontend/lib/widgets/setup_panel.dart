@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../api.dart';
@@ -11,6 +13,7 @@ class SetupPanel extends StatelessWidget {
     required this.voice,
     required this.topic,
     required this.tests,
+    required this.topics,
     required this.test,
     required this.onTest,
     required this.enabled,
@@ -25,6 +28,7 @@ class SetupPanel extends StatelessWidget {
   final String mode, voice;
   final TextEditingController topic;
   final List<BookTest> tests; // imported from your books
+  final List<Topic> topics; // suggestions for the topic field
   final BookTest? test; // the chosen one, if any
   final ValueChanged<String?> onTest;
   final bool enabled;
@@ -67,14 +71,11 @@ class SetupPanel extends StatelessWidget {
           _QuestionsPicker(tests: tests, test: test, mode: mode, enabled: enabled, onTest: onTest),
         ],
         const SizedBox(height: 16),
-        TextField(
+        _TopicField(
           controller: topic,
+          topics: topics,
           enabled: enabled && test == null,
-          decoration: InputDecoration(
-            labelText: mode == 'part2' || mode == 'exam' ? 'Cue card topic (optional)' : 'Topic (optional)',
-            hintText: 'e.g. hometown, technology',
-            border: OutlineInputBorder(),
-          ),
+          label: mode == 'part2' || mode == 'exam' ? 'Cue card topic (optional)' : 'Topic (optional)',
         ),
         const SizedBox(height: 16),
         DropdownMenu<String>(
@@ -157,6 +158,165 @@ class _QuestionsPicker extends StatelessWidget {
             padding: const EdgeInsets.only(top: 6, left: 4),
             child: Text(chosen.outline(mode), style: text.bodySmall),
           ),
+      ],
+    );
+  }
+}
+
+/// The topic: typed, picked from the suggestions, or rolled by letter.
+class _TopicField extends StatefulWidget {
+  const _TopicField({required this.controller, required this.topics, required this.enabled, required this.label});
+
+  final TextEditingController controller;
+  final List<Topic> topics;
+  final bool enabled;
+  final String label;
+
+  @override
+  State<_TopicField> createState() => _TopicFieldState();
+}
+
+class _TopicFieldState extends State<_TopicField> {
+  final _focus = FocusNode();
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickByLetter() async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => _LetterDialog(topics: widget.topics),
+    );
+    if (name != null) widget.controller.text = name;
+  }
+
+  @override
+  Widget build(BuildContext context) => RawAutocomplete<String>(
+    textEditingController: widget.controller,
+    focusNode: _focus,
+    optionsBuilder: (value) {
+      final typed = value.text.trim().toLowerCase();
+      if (typed.isEmpty) return const [];
+      return widget.topics.map((t) => t.name).where((n) => n.toLowerCase().contains(typed)).take(30);
+    },
+    fieldViewBuilder: (context, controller, focus, onSubmitted) => TextField(
+      controller: controller,
+      focusNode: focus,
+      enabled: widget.enabled,
+      onSubmitted: (_) => onSubmitted(),
+      decoration: InputDecoration(
+        labelText: widget.label,
+        hintText: 'Type, or pick by letter',
+        border: const OutlineInputBorder(),
+        suffixIcon: IconButton(
+          tooltip: 'Pick a topic by letter',
+          onPressed: widget.enabled && widget.topics.isNotEmpty ? _pickByLetter : null,
+          icon: const Icon(Icons.sort_by_alpha),
+        ),
+      ),
+    ),
+    optionsViewBuilder: (context, onSelected, options) => Align(
+      alignment: Alignment.topLeft,
+      child: Material(
+        elevation: 4,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 260, maxWidth: 288),
+          child: ListView(
+            padding: EdgeInsets.zero,
+            shrinkWrap: true,
+            children: [
+              for (final o in options) ListTile(dense: true, title: Text(o), onTap: () => onSelected(o)),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// A-Z: choose a letter, or roll one, and get a random topic starting with it.
+class _LetterDialog extends StatefulWidget {
+  const _LetterDialog({required this.topics});
+
+  final List<Topic> topics;
+
+  @override
+  State<_LetterDialog> createState() => _LetterDialogState();
+}
+
+class _LetterDialogState extends State<_LetterDialog> {
+  final _random = Random();
+  String? _letter;
+  Topic? _topic;
+
+  Map<String, List<Topic>> get _byLetter {
+    final map = <String, List<Topic>>{};
+    for (final t in widget.topics) {
+      map.putIfAbsent(t.letter, () => []).add(t);
+    }
+    return map;
+  }
+
+  void _choose(String letter) {
+    final options = _byLetter[letter]!;
+    setState(() {
+      _letter = letter;
+      _topic = options[_random.nextInt(options.length)];
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final byLetter = _byLetter;
+    final letters = byLetter.keys.toList();
+    return AlertDialog(
+      title: const Text('Pick a topic by letter'),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                for (final code in List.generate(26, (i) => String.fromCharCode(65 + i)))
+                  ChoiceChip(
+                    label: Text(code),
+                    selected: code == _letter,
+                    onSelected: byLetter.containsKey(code) ? (_) => _choose(code) : null,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => _choose(letters[_random.nextInt(letters.length)]),
+              icon: const Icon(Icons.casino_outlined),
+              label: const Text('Random letter'),
+            ),
+            const SizedBox(height: 16),
+            if (_topic != null) ...[
+              Text('$_letter: ${_topic!.name}', style: theme.textTheme.titleLarge),
+              Text(
+                '${byLetter[_letter]!.length} topics start with $_letter${_topic!.fromBooks ? ' · from your books' : ''}',
+                style: theme.textTheme.bodySmall,
+              ),
+            ] else
+              Text('Choose a letter, or roll one.', style: theme.textTheme.bodyMedium),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        if (_topic != null) ...[
+          TextButton(onPressed: () => _choose(_letter!), child: const Text('Another')),
+          FilledButton(onPressed: () => Navigator.pop(context, _topic!.name), child: const Text('Use this topic')),
+        ],
       ],
     );
   }

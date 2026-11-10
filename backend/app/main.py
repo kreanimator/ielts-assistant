@@ -3,6 +3,7 @@
 HTTP:
   GET /api/options   voices, training modes and the LLM model, for the setup screen
   GET /api/books     the Speaking tests imported from your books (see books.py)
+  GET /api/topics    topics to pick from: our A-Z list and your books' topics (see topics.py)
   /api/sessions/...  past sessions and reports (see history.py)
   GET /              the Flutter app (after `make frontend`)
   GET /dev           a plain developer test page
@@ -21,7 +22,8 @@ WebSocket protocol on /ws:
                    JSON  {"type": "listening"}                      the candidate started speaking
                    JSON  {"type": "partial", "text": "..."}         live transcript while they speak
                    JSON  {"type": "transcript", "text": "..."}      the finished answer
-                   JSON  {"type": "examiner", "text": "..."}        one sentence of the reply
+                   JSON  {"type": "examiner", "text": "...", "new": true}   one sentence of the reply;
+                                                                    new: it starts a new examiner message
                    bytes PCM16 mono 24 kHz speech for that sentence
                    JSON  {"type": "examiner_done", "turn": 3}       reply finished; client resumes the mic
                    JSON  {"type": "part", "title": "Part 2 · Long turn"}   a part of the test starts
@@ -56,7 +58,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import books, config, exam, fluency, history, llm, storage
+from . import books, config, exam, fluency, history, llm, storage, topics
 from .analyst import analyse
 from .examiner import MODES, Conversation
 from .pronunciation import PronunciationScorer
@@ -119,6 +121,12 @@ def list_books():
         for b in books.load_books()
         if b["tests"]
     ]
+
+
+@app.get("/api/topics")
+def list_topics():
+    """Topics for the topic field and the A-Z letter picker (see topics.py)."""
+    return topics.all_topics()
 
 
 @app.get("/dev")
@@ -226,8 +234,9 @@ class Talk:
         """A countdown in the app, starting when the speech sent so far has played."""
         await self.ws.send_json({"type": "clock", "label": label, "seconds": seconds})
 
-    async def speak(self, sentence: str):
-        await self.ws.send_json({"type": "examiner", "text": sentence})
+    async def speak(self, sentence: str, first: bool = False):
+        """first: the sentence starts a new examiner message (a new bubble in the app)."""
+        await self.ws.send_json({"type": "examiner", "text": sentence, "new": first})
         audio = await asyncio.to_thread(speaker.speak, sentence, self.voice)
         await self.ws.send_bytes(to_pcm16(audio))
         self.playing_until = max(self.playing_until, time.monotonic()) + len(audio) / 24000
@@ -240,8 +249,8 @@ class Talk:
 
     async def say(self, text: str, done: bool = True):
         """A fixed line of the examiner's script."""
-        for sentence in llm.SENTENCE_END.split(text):
-            await self.speak(sentence)
+        for i, sentence in enumerate(llm.SENTENCE_END.split(text)):
+            await self.speak(sentence, first=i == 0)
         storage.add_message(self.session_id, "examiner", text)
         log.info("examiner: %s", text)
         if done:
@@ -254,7 +263,7 @@ class Talk:
 
         async def say(sentence: str):
             reply.append(sentence)
-            await self.speak(sentence)
+            await self.speak(sentence, first=len(reply) == 1)
 
         if instruction is not None:
             # aclosing: stopping early closes the LLM request at once
@@ -273,6 +282,10 @@ class Talk:
         log.info("examiner: %s", text)
         if not conversation.over:
             await self.handover()
+
+    def set_topic(self, topic: str):
+        """What the session is about, for the history (e.g. the cue card's subject)."""
+        storage.set_topic(self.session_id, topic)
 
     async def cue_card(self, card: dict, seconds: float, skippable: bool):
         """Shows the Part 2 card and waits out the preparation time (or until skipped)."""

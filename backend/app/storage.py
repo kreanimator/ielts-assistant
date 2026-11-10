@@ -100,6 +100,11 @@ def set_report(session_id: str, report: dict):
         db.execute("UPDATE sessions SET report = ? WHERE id = ?", (json.dumps(report), session_id))
 
 
+def set_topic(session_id: str, topic: str):
+    with connect() as db:
+        db.execute("UPDATE sessions SET topic = ? WHERE id = ?", (topic, session_id))
+
+
 def list_sessions() -> list[dict]:
     with connect() as db:
         rows = db.execute(
