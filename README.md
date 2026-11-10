@@ -142,7 +142,17 @@ Limits to keep in mind:
   several sessions rather than one report.
 - speechocean762 is read-aloud speech from Mandarin speakers; free speech and other
   accents may score a little differently.
-- Stress and intonation are not measured yet, so Pronunciation is capped at 8.5.
+- Pronunciation comes from individual sounds and is capped at 8.5, because word
+  stress and intonation are part of the IELTS band but cannot raise ours (next point).
+- **Intonation** is measured: the app tracks your pitch and shows "Flat intonation"
+  when your voice moves less than 3 semitones in an answer (about 1 in 10 learners
+  reading aloud in speechocean762). It is advice only: across speechocean762's
+  speakers, pitch range followed the experts' prosody scores only weakly
+  (correlation 0.19) and did not improve the band's accuracy on held-out speakers.
+- **Word stress is not checked.** We tried: in each longer word, find the vowel
+  that is loudest, highest and longest, and compare it with the dictionary. On
+  words the experts marked correctly stressed, it disagreed 27% of the time, so 9
+  of 10 of its warnings would have been false alarms. Showing them would mislead.
 
 ## Features
 

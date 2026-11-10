@@ -40,6 +40,7 @@ class Delivery {
       fillers = json['fluency']['fillers'],
       repetitions = json['fluency']['repetitions'],
       pronunciation = (json['pronunciation']['score'] as num?)?.toDouble(),
+      flatVoice = json['intonation']?['flat'] as bool?,
       unclearWords = [
         for (final w in json['pronunciation']['words'])
           (word: w['word'] as String, expected: w['expected'] as String, heard: w['heard'] as String),
@@ -59,6 +60,7 @@ class Delivery {
 
   final int? wpm, words, pauses, fillers, repetitions;
   final double? longestPause, pronunciation;
+  final bool? flatVoice; // the voice hardly rose and fell (null: answer too short to tell)
   final List<({String word, String expected, String heard})> unclearWords;
   final List<({String expected, String heard, int count})> sounds; // heard '' = left out
   final ({String sound, int right, int total, List<String> missed})? target; // sound drills

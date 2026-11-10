@@ -15,7 +15,7 @@ import re
 
 import numpy as np
 
-from . import llm
+from . import llm, prosody
 
 FILLERS = {"um", "umm", "uh", "er", "erm", "ah", "hmm", "mm"}
 # The LLM's bands, corrected to match human examiners: band = slope * llm_band + offset.
@@ -131,8 +131,9 @@ def pronunciation_band(score: float) -> float:
     """Measured accuracy → band, calibrated against expert ratings of 1,340 adult learner
     sentences (speechocean762, see scripts/calibrate_pronunciation.py): each point is the
     median app score at one expert level. Below 0.45 the experts' levels 3 to 5 score
-    alike, so the band stays at 4. Capped at 8.5, because stress and intonation are not
-    measured."""
+    alike, so the band stays at 4. Capped at 8.5: word stress and intonation are part of
+    the IELTS band, and our measures of them did not predict the experts' scores (see the
+    README), so they cannot raise it."""
     points = [(0.45, 4.0), (0.535, 5.375), (0.67, 6.125), (0.84, 7.0), (0.93, 8.0), (0.98, 8.5)]
     band = np.interp(score, [p[0] for p in points], [p[1] for p in points])
     return round_band(float(band))
@@ -167,6 +168,8 @@ def measured(answers: list[dict]) -> dict:
         "vocabulary_errors": sum(c["category"] == "vocabulary" for c in corrections),
         "vocabulary_variety": round(moving_type_token_ratio(tokens), 2),
         "pronunciation": round(sum(p["score"] * w for p, w in scored) / max(1, sum(w for _, w in scored)), 2) if scored else None,
+        "pitch_range": round(float(np.median(ranges)), 1) if (ranges := [a["delivery"]["intonation"]["range"] for a in answers
+                                                               if a["delivery"] and a["delivery"].get("intonation")]) else None,
         "sounds": [{"expected": e, "heard": h, "count": n} for (e, h), n in sorted(sounds.items(), key=lambda kv: -kv[1])][:4],
     }
 
@@ -237,10 +240,15 @@ def pronunciation_criterion(stats: dict) -> dict:
         summary = "Work on the sounds listed: they repeat across your answers."
     else:
         summary = "Your sounds are mostly clear, with a few one-off slips."
+    if (spread := stats.get("pitch_range")) is not None:
+        evidence.append(f"Your voice rose and fell over {spread:.0f} semitones (lively speech: 5 or more).")
+        if spread < prosody.FLAT_SEMITONES:
+            summary += (" Your voice stays quite flat: let it rise and fall more, and stress the"
+                        " important word in each phrase.")
     return {
         "id": "pronunciation",
         "name": "Pronunciation",
         "evidence": evidence,
-        "summary": summary + " (Measured from individual sounds only; stress and intonation are not checked yet.)",
+        "summary": summary + " (The band comes from individual sounds; word stress and intonation do not change it.)",
         "band": pronunciation_band(accuracy),
     }

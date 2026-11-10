@@ -108,3 +108,6 @@ without any books.
 11. ✅ Easy install on Linux and Apple Silicon Macs (the Mac path is not yet tested on a real Mac): `make install` (Python from uv, models,
    llama.cpp build for the computer, the web app built or downloaded) and `make start`
    (both servers, the browser, Ctrl+C stops all); the device is chosen automatically
+12. ✅ Intonation: the pitch range of each answer, "Flat intonation" below 3 semitones, and in
+   the report's Pronunciation evidence (advice only: it did not predict experts' scores).
+   Word stress was tried on speechocean762 and left out: 9 of 10 warnings would be false

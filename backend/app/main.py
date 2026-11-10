@@ -61,7 +61,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import books, config, drills, exam, fluency, history, llm, storage, topics
+from . import books, config, drills, exam, fluency, history, llm, prosody, storage, topics
 from .analyst import analyse
 from .examiner import MODES, Conversation
 from .pronunciation import PronunciationScorer
@@ -406,7 +406,8 @@ class Talk:
             # A sound drill checks the sentence you were asked to say, so a misheard word still counts.
             text = question if self.target else transcript.text
             pronunciation = await asyncio.to_thread(pronunciation_scorer.score, audio, text, self.target)
-            delivery = {"fluency": fluency.measure(transcript.words), "pronunciation": pronunciation}
+            delivery = {"fluency": fluency.measure(transcript.words), "pronunciation": pronunciation,
+                        "intonation": await asyncio.to_thread(prosody.intonation, audio)}
             storage.set_answer_field(self.session_id, answer, "delivery", delivery)
             await self.ws.send_json({"type": "delivery", "answer": answer, **delivery})
         except Exception:
