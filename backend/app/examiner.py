@@ -40,8 +40,13 @@ says your name, then ask the first discussion question.""",
 The candidate has just talked for up to two minutes about the topic on their cue card.""",
     },
 }
-# Put the full exam last in the list: the single parts come first, in test order.
-MODES = {k: MODES[k] for k in ("free", "part1", "part2", "part3", "exam")}
+MODES["drill"] = {
+    "title": "Drill",
+    "description": "Practise one weak area: a sound, a tense, linking words.",
+    "prompt": "",  # written for the chosen drill (see drills.py)
+}
+# The single parts in test order, then the full exam, then drills.
+MODES = {k: MODES[k] for k in ("free", "part1", "part2", "part3", "exam", "drill")}
 
 # In the full exam, Part 3 follows the Part 2 talk instead of opening the session.
 EXAM_PART3 = """You are {name}, an IELTS Speaking examiner running Part 3 of the test, the discussion.
@@ -72,6 +77,7 @@ CLOSING = {
     "part2": "Thank the candidate and say that Part 2 is over. Do not ask anything.",
     "part3": "Thank the candidate and say that the test is over. Do not ask anything.",
     "exam": "Say only \"Thank you.\" Do not ask anything.",
+    "drill": "Thank the learner, tell them in one sentence what they did well, and say goodbye. Do not ask anything.",
 }
 # After the long turn, one or two short questions round off Part 2.
 ROUNDING_OFF = ("Ask only one short, simple question about something the candidate mentioned "
@@ -106,8 +112,10 @@ class Conversation:
     finish() is called (the full exam does this when the part's time is up)."""
 
     def __init__(self, mode: str, examiner_name: str, topic: str | None = None, test: dict | None = None,
-                 exam: bool = False, task: str | None = None):
-        if mode == "part3" and exam:
+                 exam: bool = False, task: str | None = None, prompt: str | None = None):
+        if prompt:  # a drill's own prompt
+            system = prompt.format(name=examiner_name) + RULES
+        elif mode == "part3" and exam:
             system = EXAM_PART3.format(name=examiner_name, task=task) + RULES
         else:
             system = MODES[mode]["prompt"].format(name=examiner_name) + RULES

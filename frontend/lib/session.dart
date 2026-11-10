@@ -47,12 +47,21 @@ class Delivery {
       sounds = [
         for (final s in json['pronunciation']['sounds'])
           (expected: s['expected'] as String, heard: s['heard'] as String, count: s['count'] as int),
-      ];
+      ],
+      target = json['pronunciation']['target'] == null
+          ? null
+          : (
+              sound: json['pronunciation']['target']['sound'] as String,
+              right: json['pronunciation']['target']['right'] as int,
+              total: json['pronunciation']['target']['total'] as int,
+              missed: List<String>.from(json['pronunciation']['target']['missed_words']),
+            );
 
   final int? wpm, words, pauses, fillers, repetitions;
   final double? longestPause, pronunciation;
   final List<({String word, String expected, String heard})> unclearWords;
   final List<({String expected, String heard, int count})> sounds; // heard '' = left out
+  final ({String sound, int right, int total, List<String> missed})? target; // sound drills
 }
 
 class Correction {
@@ -128,7 +137,7 @@ class Session extends ChangeNotifier {
 
   int get correctionCount => answers.fold(0, (sum, a) => sum + (a.feedback?.corrections.length ?? 0));
 
-  Future<void> start({required String mode, required String voice, String? topic, BookTest? test}) async {
+  Future<void> start({required String mode, required String voice, String? topic, BookTest? test, String? drill}) async {
     messages.clear();
     partial = '';
     id = null;
@@ -153,6 +162,7 @@ class Session extends ChangeNotifier {
           'topic': topic,
           'book': test?.bookId,
           'test': test?.number,
+          'drill': drill,
         }).toJS,
       );
     }).toJS;

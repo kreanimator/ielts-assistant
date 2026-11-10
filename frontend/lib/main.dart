@@ -42,6 +42,8 @@ class _HomePageState extends State<HomePage> {
   Options? _options;
   List<BookTest> _tests = []; // imported from your books
   List<Topic> _topics = [];
+  List<Drill> _drills = [];
+  String? _drill; // Drill.id
   String? _test; // BookTest.key, or null for questions made up by the examiner
   String? _loadError;
   String _mode = 'part1';
@@ -72,7 +74,10 @@ class _HomePageState extends State<HomePage> {
       final options = await fetchOptions();
       final tests = await fetchBookTests();
       final topics = await fetchTopics();
+      final drills = await fetchDrills();
       setState(() {
+        _drills = drills;
+        _drill ??= drills.firstOrNull?.id;
         _tests = tests;
         _topics = topics;
         _options = options;
@@ -93,12 +98,18 @@ class _HomePageState extends State<HomePage> {
 
   void _start() {
     final topic = _topic.text.trim();
-    _session.start(mode: _mode, voice: _voice, topic: topic.isEmpty ? null : topic, test: _chosenTest);
+    _session.start(
+      mode: _mode,
+      voice: _voice,
+      topic: topic.isEmpty ? null : topic,
+      test: _chosenTest,
+      drill: _mode == 'drill' ? _drill : null,
+    );
   }
 
   /// The chosen book test, when the mode can use one.
   BookTest? get _chosenTest {
-    if (_mode == 'free') return null;
+    if (_mode == 'free' || _mode == 'drill') return null;
     return _tests.where((t) => t.key == _test).firstOrNull;
   }
 
@@ -119,6 +130,9 @@ class _HomePageState extends State<HomePage> {
         topic: _topic,
         tests: _tests,
         topics: _topics,
+        drills: _drills,
+        drill: _drills.where((d) => d.id == _drill).firstOrNull,
+        onDrill: (id) => setState(() => _drill = id),
         test: _chosenTest,
         onTest: (key) => setState(() => _test = key),
         enabled: !_session.active && _session.phase != Phase.ending,

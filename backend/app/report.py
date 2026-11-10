@@ -181,6 +181,9 @@ def moving_type_token_ratio(tokens: list[str], window: int = 40) -> float:
 async def build(session: dict) -> dict:
     answers = [m for m in session["messages"] if m["role"] == "candidate"]
     stats = measured(answers)
+    if session.get("mode") == "drill":
+        return {"stats": stats, "enough": False,
+                "note": "Drills practise one thing, so they get no band estimate. Your answers and their checks are below."}
     report = {"stats": stats, "enough": len(answers) >= MIN_ANSWERS and stats["words"] >= MIN_WORDS}
     if not report["enough"]:
         report["note"] = (f"Speak at least {MIN_ANSWERS} answers and {MIN_WORDS} words for band estimates. "

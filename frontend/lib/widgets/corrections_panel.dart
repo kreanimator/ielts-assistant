@@ -166,6 +166,16 @@ class _DeliveryView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (d.target case final t?) ...[
+            Text(
+              '/${t.sound}/: ${t.right} of ${t.total} right',
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: t.right == t.total ? Colors.green.shade700 : theme.colorScheme.error,
+              ),
+            ),
+            if (t.missed.isNotEmpty) Text('Try again: ${t.missed.join(', ')}', style: theme.textTheme.bodySmall),
+            const SizedBox(height: 6),
+          ],
           Wrap(
             spacing: 6,
             runSpacing: 6,

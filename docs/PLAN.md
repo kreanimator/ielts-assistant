@@ -102,3 +102,6 @@ without any books.
 9. ✅ Calibrated scores: the Pronunciation band is fitted to expert ratings (speechocean762),
    and the other bands are checked against examiners' scores (Speak & Improve Corpus 2025);
    `make calibrate-pronunciation` and `make calibrate-bands` repeat the checks
+10. ✅ Drills: sound drills (repeat sentences full of one sound, see how many came out right)
+   and language drills (questions that need one structure, checked first by the analyst),
+   with the sounds you miss most suggested first

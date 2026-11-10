@@ -13,7 +13,7 @@ The examiner's fixed lines below are our own wording, not the official examiner 
 import random
 import time
 
-from . import config, llm
+from . import config, drills, llm
 from .examiner import Conversation
 
 PART2_INTRO = ("Now I'm going to give you a topic, and I'd like you to talk about it for one to two "
@@ -96,10 +96,13 @@ def subject(card: dict) -> str:
     return task[len("describe "):] if task.lower().startswith("describe ") else task
 
 
-async def run(talk, mode: str, name: str, topic: str | None, test: dict | None):
+async def run(talk, mode: str, name: str, topic: str | None, test: dict | None,
+              drill: tuple[str, str] | None = None):
     """Runs one session's examiner side. Returns when the session is over by itself;
     free conversation and Part 1/3 without a book test go on until you end them."""
-    if mode == "exam":
+    if mode == "drill":
+        await run_drill(talk, name, topic, drill or ("language", "past"))
+    elif mode == "exam":
         await exam(talk, name, topic, test)
     elif mode == "part2":
         card = await cue_card(test, topic)
@@ -134,9 +137,30 @@ async def exam(talk, name: str, topic: str | None, test: dict | None):
     await talk.say(EXAM_END, done=False)
 
 
-async def interview(talk, conversation: Conversation, wrap_up_at: float | None = None, cut_at: float | None = None):
-    """Question, answer, question... At wrap_up_at the part closes after the current answer;
-    at cut_at an answer still going on is cut off."""
+async def run_drill(talk, name: str, topic: str | None, drill: tuple[str, str]):
+    kind, key = drill
+    await talk.part(f"Drill · {drills.title(kind, key)}")
+    talk.set_topic(drills.title(kind, key))
+    if kind == "language":
+        talk.focus = drills.analyst_focus(key)
+        await interview(talk, Conversation("drill", name, topic, prompt=drills.language_prompt(key)),
+                        max_answers=drills.QUESTIONS)
+        return
+    # A sound: repeat sentences after the examiner. Reading aloud needs no grammar feedback.
+    talk.target, talk.analyse_answers = key, False
+    sentences = await drills.sentences(key, talk.count_sound)
+    for i, sentence in enumerate(sentences):
+        lead = "Please repeat after me." if i == 0 else "Next one."
+        await talk.say(f"{lead} {sentence}")
+        await talk.answer(sentence)
+    await talk.say("Well done. That's the end of this drill.", done=False)
+
+
+async def interview(talk, conversation: Conversation, wrap_up_at: float | None = None, cut_at: float | None = None,
+                    max_answers: int | None = None):
+    """Question, answer, question... At wrap_up_at (or after max_answers) the part closes
+    after the current answer; at cut_at an answer still going on is cut off."""
+    answers = 0
     while True:
         await talk.examiner_turn(conversation)
         if conversation.over:
@@ -144,7 +168,8 @@ async def interview(talk, conversation: Conversation, wrap_up_at: float | None =
         heard = await talk.answer(conversation.last_question(), cut_at=cut_at)
         if heard:
             conversation.add_candidate(heard)
-        if heard is None or (wrap_up_at and time.monotonic() >= wrap_up_at):
+            answers += 1
+        if heard is None or (wrap_up_at and time.monotonic() >= wrap_up_at) or (max_answers and answers >= max_answers):
             conversation.finish()
 
 

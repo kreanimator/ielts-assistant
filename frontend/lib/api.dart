@@ -97,3 +97,27 @@ Future<List<Topic>> fetchTopics() async {
   if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
   return [for (final t in jsonDecode(utf8.decode(response.bodyBytes))) Topic.fromJson(t)];
 }
+
+/// A drill: one sound to repeat, or one structure to use in answers.
+class Drill {
+  Drill.fromJson(Map<String, dynamic> json, this.reason)
+    : id = json['id'],
+      kind = json['kind'],
+      title = json['title'],
+      description = json['description'];
+
+  final String id, kind, title, description;
+  final String? reason; // why your past sessions suggest it
+
+  bool get isSound => kind == 'sound';
+}
+
+/// All drills, the ones your past sessions suggest first.
+Future<List<Drill>> fetchDrills() async {
+  final response = await http.get(apiUri('/api/drills'));
+  if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
+  final json = jsonDecode(utf8.decode(response.bodyBytes));
+  final reasons = {for (final s in json['suggested']) s['id'] as String: s['reason'] as String};
+  final drills = [for (final d in json['drills']) Drill.fromJson(d, reasons[d['id']])];
+  return [...drills.where((d) => d.reason != null), ...drills.where((d) => d.reason == null)];
+}

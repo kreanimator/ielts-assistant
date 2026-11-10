@@ -6,14 +6,13 @@ after each session you get a report with an estimated band for each IELTS criter
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
-> **Status:** milestones 1–9 work: voice conversation with an AI examiner in the
+> **Status:** milestones 1–10 work: voice conversation with an AI examiner in the
 > web app, the full exam with real timing, practice of each part on its own
 > (including the Part 2 cue card with a preparation minute), topics by letter,
-> corrections, fluency numbers and a
+> drills for weak sounds and structures, corrections, fluency numbers and a
 > pronunciation check on each answer, a band report at the end of each session
 > (checked against human examiners' scores), a history with your recordings and
-> progress charts, and real test questions imported from your own books. Drill mode
-> is still planned. See [docs/PLAN.md](docs/PLAN.md).
+> progress charts, and real test questions imported from your own books. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Run it
 
@@ -84,6 +83,17 @@ No questions are copied from that site: the examiner writes its own.
 Settings such as the voice or the end-of-turn pause are environment variables;
 see [backend/app/config.py](backend/app/config.py).
 
+### Drills
+
+**Drill** practises one weak area. In a **sound drill** (/θ/, /ð/, /v/, /w/, /r/, /l/,
+/ɪ/, /æ/) the examiner says six short sentences full of that sound, you repeat each
+one, and you see how many of the sounds came out right and which words to try again.
+In a **language drill** (past tenses, the future, conditionals, linking words,
+comparisons, opinions with reasons) the examiner asks six questions that need that
+structure, and the corrections check it first. The sounds you got wrong most often
+in your recent sessions are suggested at the top of the list. Drills get no band
+estimate.
+
 ## How realistic are the bands?
 
 The bands are checked against scores that human experts gave, using two public
@@ -113,10 +123,10 @@ Limits to keep in mind:
   accents may score a little differently.
 - Stress and intonation are not measured yet, so Pronunciation is capped at 8.5.
 
-## Features (planned)
+## Features
 
 - **Modes:** full exam (Parts 1–3 with real timing), a single part, free-topic
-  conversation, targeted drills (planned)
+  conversation, drills
 - **Live panels:** examiner avatar, your live transcript, corrections
 - **Report:** estimated band for Fluency & Coherence, Lexical Resource,
   Grammatical Range & Accuracy and Pronunciation, each backed by measured

@@ -56,9 +56,14 @@ Return:
 FILLERS = {"um", "umm", "uh", "er", "erm", "ah", "hmm"}
 
 
-async def analyse(question: str, answer: str) -> dict:
+async def analyse(question: str, answer: str, focus: str | None = None) -> dict:
+    """focus: what a drill practises; mistakes with it are listed first."""
+    prompt = PROMPT
+    if focus:
+        prompt += (f"\n\nThe candidate is practising {focus}. Check that first: list any mistake with it "
+                   "first, and make the tip about it.")
     messages = [
-        {"role": "system", "content": PROMPT},
+        {"role": "system", "content": prompt},
         {"role": "user", "content": f"Examiner's question: {question}\n\nCandidate's answer: {answer}"},
     ]
     feedback = await llm.complete_json(messages, SCHEMA)

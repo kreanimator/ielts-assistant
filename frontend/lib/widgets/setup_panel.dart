@@ -14,6 +14,9 @@ class SetupPanel extends StatelessWidget {
     required this.topic,
     required this.tests,
     required this.topics,
+    required this.drills,
+    required this.drill,
+    required this.onDrill,
     required this.test,
     required this.onTest,
     required this.enabled,
@@ -29,6 +32,9 @@ class SetupPanel extends StatelessWidget {
   final TextEditingController topic;
   final List<BookTest> tests; // imported from your books
   final List<Topic> topics; // suggestions for the topic field
+  final List<Drill> drills;
+  final Drill? drill; // the chosen drill, in drill mode
+  final ValueChanged<String> onDrill;
   final BookTest? test; // the chosen one, if any
   final ValueChanged<String?> onTest;
   final bool enabled;
@@ -66,12 +72,17 @@ class SetupPanel extends StatelessWidget {
               onTap: () => onMode(m.id),
             ),
           ),
-        if (mode != 'free') ...[
+        if (mode == 'drill' && drills.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _DrillPicker(drills: drills, drill: drill, enabled: enabled, onDrill: onDrill),
+        ],
+        if (mode != 'free' && mode != 'drill') ...[
           const SizedBox(height: 16),
           _QuestionsPicker(tests: tests, test: test, mode: mode, enabled: enabled, onTest: onTest),
         ],
-        const SizedBox(height: 16),
-        _TopicField(
+        if (!(mode == 'drill' && (drill?.isSound ?? false))) const SizedBox(height: 16),
+        if (!(mode == 'drill' && (drill?.isSound ?? false)))
+          _TopicField(
           controller: topic,
           topics: topics,
           enabled: enabled && test == null,
@@ -317,6 +328,53 @@ class _LetterDialogState extends State<_LetterDialog> {
           TextButton(onPressed: () => _choose(_letter!), child: const Text('Another')),
           FilledButton(onPressed: () => Navigator.pop(context, _topic!.name), child: const Text('Use this topic')),
         ],
+      ],
+    );
+  }
+}
+
+/// Which drill: the sounds your past sessions suggest come first.
+class _DrillPicker extends StatelessWidget {
+  const _DrillPicker({required this.drills, required this.drill, required this.enabled, required this.onDrill});
+
+  final List<Drill> drills;
+  final Drill? drill;
+  final bool enabled;
+  final ValueChanged<String> onDrill;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final chosen = drill;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DropdownMenu<String>(
+          key: ValueKey(chosen?.id),
+          enabled: enabled,
+          expandedInsets: EdgeInsets.zero,
+          menuHeight: 400,
+          requestFocusOnTap: false,
+          label: const Text('Practise'),
+          initialSelection: chosen?.id,
+          dropdownMenuEntries: [
+            for (final d in drills)
+              DropdownMenuEntry(
+                value: d.id,
+                label: d.title,
+                trailingIcon: d.reason == null ? null : const Icon(Icons.star_outline, size: 18),
+              ),
+          ],
+          onSelected: (id) => id == null ? null : onDrill(id),
+        ),
+        if (chosen != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 4),
+            child: Text(
+              chosen.reason == null ? chosen.description : '${chosen.description} Suggested: ${chosen.reason}.',
+              style: text.bodySmall,
+            ),
+          ),
       ],
     );
   }

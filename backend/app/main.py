@@ -4,13 +4,14 @@ HTTP:
   GET /api/options   voices, training modes and the LLM model, for the setup screen
   GET /api/books     the Speaking tests imported from your books (see books.py)
   GET /api/topics    topics to pick from: our A-Z list and your books' topics (see topics.py)
+  GET /api/drills    drills to pick from, and the ones your past sessions suggest (see drills.py)
   /api/sessions/...  past sessions and reports (see history.py)
   GET /              the Flutter app (after `make frontend`)
   GET /dev           a plain developer test page
 
 WebSocket protocol on /ws:
   client → server  JSON  {"type": "start", "mode": "part1", "voice": "bf_emma", "topic": "travel",
-                          "book": "cambridge-ielts-08", "test": 2}
+                          "book": "cambridge-ielts-08", "test": 2, "drill": "sound:θ"}
                          (all optional; mode is one of /api/options "modes"; book and test pick
                           a real test's questions instead of a topic, for every mode but free)
                    JSON  {"type": "mic", "turn": 3}                 mic opened after examiner_done turn 3;
@@ -35,7 +36,9 @@ WebSocket protocol on /ws:
                    JSON  {"type": "delivery", "answer": 0,          measured right after the answer
                           "fluency": {"seconds", "words", "wpm", "pauses", "longest_pause", "fillers", "repetitions"},
                           "pronunciation": {"score": 0..1, "words": [{"word", "expected", "heard"}],
-                                            "sounds": [{"expected": "θ", "heard": "s", "count": 2}]}}
+                                            "sounds": [{"expected": "θ", "heard": "s", "count": 2}],
+                                            "target": {"sound", "total", "right", "missed_words"}}}
+                                                                    (target: sound drills only)
                    JSON  {"type": "feedback", "answer": 0,          feedback on answer number 0, 1, ...
                           "corrections": [{"category", "original", "better", "why"}],
                           "good": "...", "tip": "..."}             arrives a few seconds after the answer
@@ -58,7 +61,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import books, config, exam, fluency, history, llm, storage, topics
+from . import books, config, drills, exam, fluency, history, llm, storage, topics
 from .analyst import analyse
 from .examiner import MODES, Conversation
 from .pronunciation import PronunciationScorer
@@ -129,6 +132,12 @@ def list_topics():
     return topics.all_topics()
 
 
+@app.get("/api/drills")
+def list_drills():
+    """The drills, and the sounds your past sessions suggest (see drills.py)."""
+    return drills.catalogue()
+
+
 @app.get("/dev")
 def dev_page():
     return FileResponse(DEV_PAGE)
@@ -147,14 +156,15 @@ async def session(ws: WebSocket):
         voice = start.get("voice") if start.get("voice") in config.VOICES else config.DEFAULT_VOICE
         mode = start.get("mode") if start.get("mode") in MODES else "part1"
         topic = start.get("topic")
-        test = books.find_test(start.get("book", ""), start.get("test") or 0) if mode != "free" else None
+        test = books.find_test(start.get("book", ""), start.get("test") or 0) if mode not in ("free", "drill") else None
+        drill = drills.parse(start.get("drill"))
         if test:
             topic = f"{test['book']}, Test {test['test']}"
         session_id = storage.create_session(mode, topic, voice, await llm.model_name())
         talk = Talk(ws, session_id, voice)
         await ws.send_json({"type": "ready", "session": session_id})
         try:
-            await exam.run(talk, mode, examiner_name(voice), topic, test)
+            await exam.run(talk, mode, examiner_name(voice), topic, test, drill)
             await ws.send_json({"type": "finished"})  # the session ended by itself
         except EndRequested:
             pass
@@ -186,6 +196,9 @@ class Talk:
         self.playing_until = 0.0  # when the client will have played all speech sent so far
         self.was_cut = False  # the last answer was cut off at its time limit
         self.unchecked = []  # answers waiting for the analyst: (answer, question, text)
+        self.analyse_answers = True  # off for sound drills: reading aloud needs no grammar feedback
+        self.focus = None  # a language drill's focus, for the analyst
+        self.target = None  # a sound drill's sound, for the pronunciation check
         self.turns = TurnDetector(config.END_OF_TURN_SILENCE_MS)
 
     def in_background(self, work):
@@ -283,6 +296,10 @@ class Talk:
         if not conversation.over:
             await self.handover()
 
+    @staticmethod
+    def count_sound(text: str, sound: str) -> int:
+        return pronunciation_scorer.count(text, sound)
+
     def set_topic(self, topic: str):
         """What the session is about, for the history (e.g. the cue card's subject)."""
         storage.set_topic(self.session_id, topic)
@@ -365,8 +382,9 @@ class Talk:
         self.answers += 1
         storage.add_message(self.session_id, "candidate", text, answer)
         self.in_background(asyncio.to_thread(storage.save_answer_audio, self.session_id, answer, audio))
-        self.in_background(self.send_delivery(answer, audio, transcript))
-        self.unchecked.append((answer, question, text))  # analysed while the examiner's reply plays
+        self.in_background(self.send_delivery(answer, audio, transcript, question))
+        if self.analyse_answers:
+            self.unchecked.append((answer, question, text))  # analysed while the examiner's reply plays
         return text
 
     async def send_partial(self, audio: np.ndarray):
@@ -376,16 +394,18 @@ class Talk:
 
     async def send_feedback(self, answer: int, question: str, text: str):
         try:
-            feedback = await analyse(question, text)
+            feedback = await analyse(question, text, self.focus)
             storage.set_answer_field(self.session_id, answer, "feedback", feedback)
             await self.ws.send_json({"type": "feedback", "answer": answer, **feedback})
         except Exception:  # feedback is extra: never end the session because of it
             log.exception("feedback failed")
 
-    async def send_delivery(self, answer: int, audio: np.ndarray, transcript: Transcript):
+    async def send_delivery(self, answer: int, audio: np.ndarray, transcript: Transcript, question: str):
         """Measured fluency and pronunciation: fast, so it arrives right after the answer."""
         try:
-            pronunciation = await asyncio.to_thread(pronunciation_scorer.score, audio, transcript.text)
+            # A sound drill checks the sentence you were asked to say, so a misheard word still counts.
+            text = question if self.target else transcript.text
+            pronunciation = await asyncio.to_thread(pronunciation_scorer.score, audio, text, self.target)
             delivery = {"fluency": fluency.measure(transcript.words), "pronunciation": pronunciation}
             storage.set_answer_field(self.session_id, answer, "delivery", delivery)
             await self.ws.send_json({"type": "delivery", "answer": answer, **delivery})

@@ -102,6 +102,11 @@ class PronunciationScorer:
                 this.optional = True
         return phones
 
+    def count(self, text: str, symbol: str) -> int:
+        """How often a sound occurs in the dictionary pronunciation of a text."""
+        words = [w for w in re.findall(r"[a-z']+", text.lower()) if w not in FILLERS]
+        return sum(p.symbol == symbol and not p.optional for p in self.expected(words))
+
     def best_variant(self, word: str, heard: list[str], alignment: "Alignment", index: int):
         """If another dictionary pronunciation fits what was heard better, use it for this word."""
         for variant in range(1, len(self.pronunciations(word))):
@@ -113,13 +118,14 @@ class PronunciationScorer:
                 alignment.errors[index] = other.errors[0]
                 alignment.mistakes[index] = other.mistakes[0]
 
-    def score(self, audio: np.ndarray, text: str) -> dict:
+    def score(self, audio: np.ndarray, text: str, target: str | None = None) -> dict:
         """Returns the overall score, the words that came out differently, and the sound
-        mistakes that repeat (e.g. "θ" said as "s" three times)."""
+        mistakes that repeat (e.g. "θ" said as "s" three times). With a target sound (a
+        drill), also how many of that sound came out right and the words where it did not."""
         words = [w for w in re.findall(r"[a-z']+", text.lower()) if w not in FILLERS]
         expected = self.expected(words)
         if len(expected) < 4:
-            return {"score": None, "words": [], "sounds": []}
+            return {"score": None, "words": [], "sounds": [], **({"target": None} if target else {})}
         alignment = align(expected, self.heard(audio))
 
         unclear, sounds = [], {}
@@ -137,7 +143,15 @@ class PronunciationScorer:
             for mistake in mistakes:
                 sounds[mistake] = sounds.get(mistake, 0) + 1
         total = sum(p.weight for p in expected)
+        drill = {}
+        if target:
+            count = sum(p.symbol == target and not p.optional for p in expected)
+            missed = [w for i, w in enumerate(words) if any(e == target for e, _ in alignment.mistakes[i])]
+            misses = sum(e == target for i in range(len(words)) for e, _ in alignment.mistakes[i])
+            drill["target"] = {"sound": target, "total": count, "right": max(0, count - misses),
+                               "missed_words": missed[:6]} if count else None
         return {
+            **drill,
             "score": round(max(0.0, 1 - sum(alignment.errors) / total), 2),
             "words": unclear[:6],
             "sounds": [
