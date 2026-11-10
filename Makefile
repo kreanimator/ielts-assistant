@@ -27,12 +27,21 @@ else
 endif
 LLAMA_DIR = tools/llama-$(LLAMA_VERSION)-$(LLAMA_BUILD)
 
-.PHONY: install start setup models app-models llm frontend frontend-dev run books esl-topics license-check \
+.PHONY: install install-esl start setup models app-models llm frontend frontend-dev run books esl-topics license-check \
 	calibrate-pronunciation calibrate-bands check-platform
 
-# Everything in one go: Python environment, models, llama.cpp and the web app.
-install: check-platform setup models app-models frontend
+# Everything in one go: Python environment, models, llama.cpp, the web app and the topic
+# cards for the "By letter" mode (ESL=0 skips those).
+ESL ?= 1
+install: check-platform setup models app-models frontend $(if $(filter 1,$(ESL)),install-esl)
 	@echo; echo "Installed. Start the app with: make start"
+
+# The topic cards, unless they are already there. A failure does not stop the install.
+install-esl:
+	@if [ -s data/private/esl/topics.json ]; then echo "Topic cards: already downloaded (make esl-topics updates them)"; \
+	else echo "Downloading the topic cards for the By letter mode (about 2.5 minutes) ..."; \
+		PYTHONPATH=backend $(PYTHON) -m app.esl || \
+		echo "Warning: could not download the topic cards. Try again later with: make esl-topics"; fi
 
 # Start the LLM server and the backend, and open the app in the browser. Ctrl+C stops both.
 start:
@@ -102,8 +111,9 @@ run:
 books:
 	PYTHONPATH=backend $(PYTHON) -m app.books $(BOOKS)
 
-# Download the topic cards of eslconversationquestions.com for the "By letter" mode, once
-# (about 2.5 minutes). For your own practice only: they are saved in data/private/esl/.
+# Download the topic cards of eslconversationquestions.com for the "By letter" mode (make
+# install does this once; this also fetches topics added to the site since). For your own
+# practice only: they are saved in data/private/esl/.
 esl-topics:
 	PYTHONPATH=backend $(PYTHON) -m app.esl
 

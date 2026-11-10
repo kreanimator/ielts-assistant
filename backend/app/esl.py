@@ -140,5 +140,6 @@ def card(slug: str, level: str = "mixed") -> dict | None:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)  # one line per page is enough
     download()
     sys.exit(0 if load_topics() else 1)

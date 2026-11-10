@@ -16,23 +16,71 @@ Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
 ## Run it
 
-Works on **Linux** with an NVIDIA GPU (about 10 GB of free GPU memory; developed on an
-RTX 4060 Ti 16 GB) and on **Macs with Apple Silicon** (M1 or newer, 16 GB of memory or
-more; 8 GB with the smaller LLM). You also need `git`, `make` and `curl` (on a Mac:
-`xcode-select --install`), Chrome or Edge, and about 15 GB of disk space.
+### What you need
 
-```bash
-git clone https://github.com/kreanimator/ielts-speaking-assistant.git
-cd ielts-speaking-assistant
-make install    # once: Python 3.12, the models (about 10 GB) and the web app
-make start      # starts everything and opens http://127.0.0.1:8000; Ctrl+C stops it
-```
+- **Linux** with an NVIDIA GPU (about 10 GB of free GPU memory; developed on an RTX 4060 Ti
+  16 GB), or a **Mac with Apple Silicon** (M1 or newer, 16 GB of memory or more; 8 GB with
+  the smaller LLM, see below)
+- About 15 GB of free disk space and an internet connection for the install
+- Chrome or Edge, a microphone, and headphones if you can (so the examiner does not
+  hear itself)
 
-Allow the microphone, choose a training mode and press **Start**. Use headphones if
-you can. After the install nothing is downloaded: the app's fonts and renderer are
-bundled. If something does not start, the servers' output is in `data/logs/`.
+### Step by step
 
-What `make install` sets up for your computer:
+1. **Install the basic tools**, if you don't have them:
+   - Ubuntu or Debian: `sudo apt install git make curl`
+   - Mac: `xcode-select --install` (it brings `git` and `make`; `curl` is already there)
+   - NVIDIA on Linux: the NVIDIA driver (570 or newer is best). Check with `nvidia-smi`.
+2. **Download the project:**
+   ```bash
+   git clone https://github.com/kreanimator/ielts-speaking-assistant.git
+   cd ielts-speaking-assistant
+   ```
+3. **Install it** (once; about 10 GB to download, so 15 minutes or more depending on your connection):
+   ```bash
+   make install
+   ```
+   This sets up Python 3.12 (from [uv](https://docs.astral.sh/uv/), installed first if
+   you don't have it) in `.venv/`, downloads the models (about 10 GB) and the LLM server
+   built for your computer, gets the web app, and downloads the topic cards for the
+   **By letter** mode. It ends with "Installed. Start the app with: make start".
+4. **Start it:**
+   ```bash
+   make start
+   ```
+   The first start takes a minute or two while the models load; then the app opens at
+   http://127.0.0.1:8000 and the terminal says "Ready".
+5. **Practise:** allow the microphone when the browser asks, choose a training mode on
+   the left (for example **Part 1 · Interview**) and press **Start**. Speak after the
+   examiner has finished; a short pause ends your answer.
+6. **Stop it:** press **Ctrl+C** in the terminal. This stops both servers. Your sessions
+   are kept in `data/` for next time.
+
+Next time, only step 4 is needed. After the install nothing is downloaded while you
+practise: everything runs on your computer.
+
+**Optional:**
+- **Your own IELTS books:** import their Speaking tests with `make books` (see
+  [below](#practise-with-your-own-ielts-books)).
+- **Update to the latest version:** `git pull`, then `make install` again (models
+  that are already there are not downloaded again).
+
+### If something goes wrong
+
+- **The app does not open or says it cannot reach the backend:** look at the logs
+  in `data/logs/` (`llm.log` for the LLM server, `backend.log` for the backend). The
+  last lines usually say what failed.
+- **Out of GPU memory, or the examiner answers slowly:** use the smaller LLM:
+  `make install LLM=4B`, then `make start LLM=4B`.
+- **"Address already in use":** something else uses port 8000 or 8081, often an
+  earlier `make start` that is still running: press Ctrl+C in its terminal.
+- **The examiner does not hear you:** check that the browser may use the microphone
+  (the icon in the address bar) and that the right microphone is chosen in the system
+  settings.
+- **The By letter mode shows `make esl-topics`:** the topic cards could not be
+  downloaded during the install. Run `make esl-topics` to try again.
+
+### What the install sets up
 
 | | Linux + NVIDIA | Mac (Apple Silicon) |
 |---|---|---|
@@ -40,20 +88,21 @@ What `make install` sets up for your computer:
 | Speech models (Kokoro, pronunciation) | GPU | Apple GPU |
 | Whisper (speech to text) | `large-v3-turbo` on the GPU | `small.en` on the CPU |
 
-- **Python** comes from [uv](https://docs.astral.sh/uv/), which is installed first if
-  you don't have it. The project's Python stays in `.venv/`.
 - **The web app** is built with Flutter if you have it (3.38 or newer); otherwise the
   build of the latest `main` is downloaded from the project's releases.
-- **Smaller LLM:** with 8 GB of memory, or if answers come slowly, use the 4B model:
-  `make install LLM=4B`, then `make start LLM=4B`. The band calibration was done
-  with the 9B model, so bands from the 4B model are less certain.
-- **Faster Whisper on a fast Mac:** `WHISPER_MODEL=large-v3-turbo make start` is
+- **Smaller LLM:** with 8 GB of memory, or if answers come slowly, use the 4B model
+  (see above). The band calibration was done with the 9B model, so bands from the 4B
+  model are less certain.
+- **Without the topic cards:** `make install ESL=0` skips them.
+- **More accurate Whisper on a fast Mac:** `WHISPER_MODEL=large-v3-turbo make start` is
   more accurate, but slower on the CPU.
 - **Other Linux GPUs:** AMD and Intel GPUs use the Vulkan build of llama.cpp; the
   speech models then run on the CPU. Without a GPU: `make install LLAMA_BUILD=ubuntu-x64`
   (slow). Windows is not supported; WSL2 may work.
 - **With NVIDIA driver 580**, prefer the CUDA build (the default): the Vulkan build can
   leave the GPU at idle clocks and run 10 times slower.
+- **The Mac path is new** and has not been tested on a real Mac yet. If it fails,
+  please open an issue with the end of the output.
 
 The servers can also be started on their own, each in its own terminal: `make llm`
 (the LLM server) and `make run` (the backend). For frontend work with hot reload, run
@@ -99,11 +148,9 @@ may start before the minute is over. The times can be changed for practice; see
 choose a letter (or roll a random one) and you are dealt a random topic that starts
 with it, such as A: *Advice*. The examiner asks eight of that topic's questions, word
 for word, from easy to hard (or all at one level, if you choose one), reacts to each
-answer and asks for more when an answer is short. Download the cards once:
-
-```bash
-make esl-topics    # 141 topics, about 2.5 minutes, saved in data/private/esl/
-```
+answer and asks for more when an answer is short. `make install` downloads the cards
+(141 topics, about 2.5 minutes, saved in `data/private/esl/`); `make esl-topics` downloads
+them again, with any topics added to the site since.
 
 The site's terms allow copying its free questions for your own lessons, with a link to
 the source, but not publishing them as a collection. So the questions are downloaded
