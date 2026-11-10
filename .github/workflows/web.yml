@@ -1,0 +1,35 @@
+# Builds the web app from main and publishes it as the "web-latest" release, so
+# `make install` works without Flutter (it downloads web.tar.gz from there).
+name: Web app
+
+on:
+  push:
+    branches: [main]
+    paths: [frontend/**, .github/workflows/web.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Flutter 3.38.7
+        run: |
+          git clone --depth 1 --branch 3.38.7 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Build
+        working-directory: frontend
+        run: |
+          flutter --disable-analytics
+          flutter build web --release --no-web-resources-cdn --pwa-strategy=none
+          tar czf "$RUNNER_TEMP/web.tar.gz" -C build/web .
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view web-latest >/dev/null 2>&1 || gh release create web-latest --prerelease \
+            --title "Web app (latest main)" --notes "The web app built from main, downloaded by make install when Flutter is not installed."
+          gh release upload web-latest "$RUNNER_TEMP/web.tar.gz" --clobber

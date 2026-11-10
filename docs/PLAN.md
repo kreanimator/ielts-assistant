@@ -11,7 +11,7 @@ The defaults fit one 16 GB GPU (developed on an RTX 4060 Ti 16 GB with 32 GB RAM
 | Qwen3.5-9B Q5_K_M, 8k context | ~7 GB |
 | Kokoro-82M | <1 GB |
 
-On smaller GPUs, use a smaller quantization (`make llm LLM_FILE=Qwen3.5-9B-Q4_K_M.gguf`)
+On smaller GPUs or 8 GB Macs, use the 4B model (`make install LLM=4B`, then `make start LLM=4B`) or a smaller quantization (`make llm LLM_FILE=Qwen3.5-9B-Q4_K_M.gguf`)
 and a smaller Whisper model. If the analyst needs more quality later, the next step
 is Qwen3.6-35B-A3B (MoE) with part of the experts in system RAM.
 
@@ -96,12 +96,22 @@ without any books.
    no live corrections; the report at the end), and Part 2 as its own practice mode. Timing is
    kept on the server, so a slow browser cannot stretch it
 8. ✅ Topics: suggestions while you type (our own A-Z list plus the topics of your imported
-   tests), and practice by letter: pick or roll a letter, get a random topic that starts with it.
-   The idea comes from the A-Z index of eslconversationquestions.com; no questions are copied
-   from it, the examiner writes them
+   tests). (Its first letter picker only filled the topic field; item 14 replaced it.)
 9. ✅ Calibrated scores: the Pronunciation band is fitted to expert ratings (speechocean762),
    and the other bands are checked against examiners' scores (Speak & Improve Corpus 2025);
    `make calibrate-pronunciation` and `make calibrate-bands` repeat the checks
 10. ✅ Drills: sound drills (repeat sentences full of one sound, see how many came out right)
    and language drills (questions that need one structure, checked first by the analyst),
    with the sounds you miss most suggested first
+11. ✅ Easy install on Linux and Apple Silicon Macs (the Mac path is not yet tested on a real Mac): `make install` (Python from uv, models,
+   llama.cpp build for the computer, the web app built or downloaded) and `make start`
+   (both servers, the browser, Ctrl+C stops all); the device is chosen automatically
+12. ✅ Intonation: the pitch range of each answer, "Flat intonation" below 3 semitones, and in
+   the report's Pronunciation evidence (advice only: it did not predict experts' scores).
+   Word stress was tried on speechocean762 and left out: 9 of 10 warnings would be false
+13. ✅ Band accuracy checked on 168 held-out tests (MAE 0.72, no bias overall). Averaging
+   several judgements and mixing in measured numbers were tried and did not help reliably;
+   the report retries an LLM reply that is cut off or fails
+14. ✅ By letter: choose or roll a letter, get a random topic card from
+   eslconversationquestions.com (downloaded once with `make esl-topics` into data/private/,
+   never committed), and the examiner asks eight of its questions word for word

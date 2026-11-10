@@ -1,10 +1,7 @@
-"""Topics to talk about: our own A-Z list, plus the topic names of the tests imported
-from your books (they stay on your computer).
-
-The idea of practising by letter comes from the A-Z topic index at
-https://www.eslconversationquestions.com/english-conversation-questions/topics/ (thanks!).
-No questions are copied from it: the list below is our own, and the examiner writes
-the questions for a topic.
+"""Topics suggested in the topic field: our own A-Z list, plus the topic names of the
+tests imported from your books (they stay on your computer). The examiner writes the
+questions for a topic. (The "By letter" mode uses the topic cards of
+eslconversationquestions.com instead, downloaded by you: see esl.py.)
 """
 from . import books
 

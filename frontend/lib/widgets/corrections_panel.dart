@@ -160,6 +160,7 @@ class _DeliveryView extends StatelessWidget {
         (text: plural(d.repetitions!, 'repetition'), warn: d.repetitions! >= 3),
       if (d.pronunciation != null)
         (text: 'Pronunciation ${(d.pronunciation! * 100).round()}%', warn: d.pronunciation! < 0.84),
+      if (d.flatVoice != null) (text: d.flatVoice! ? 'Flat intonation' : 'Lively intonation', warn: d.flatVoice!),
     ];
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),

@@ -10,22 +10,27 @@
 These are practice estimates, not official scores. Both kinds of band are checked
 against human ratings: scripts/calibrate_pronunciation.py and scripts/calibrate_bands.py.
 """
+import asyncio
 import math
 import re
 
 import numpy as np
 
-from . import llm
+from . import llm, prosody
 
 FILLERS = {"um", "umm", "uh", "er", "erm", "ah", "hmm", "mm"}
 # The LLM's bands, corrected to match human examiners: band = slope * llm_band + offset.
 # Fitted with scripts/calibrate_bands.py --fit on 60 Speak & Improve dev tests and checked
-# on the held-out eval set (see the README). Uncorrected, the LLM is too low by about a
+# on held-out tests (see the README). Uncorrected, the LLM is too low by about a
 # third of a band for Fluency and a whole band for the others, at every level. Only that
 # shift is corrected: a steeper slope fitted the tests a little better but would inflate
 # strong speakers beyond the range the tests cover.
 CORRECTION = {"fluency_coherence": (1.0, 0.3), "lexical_resource": (1.0, 1.0), "grammar": (1.0, 1.1)}
 MIN_ANSWERS, MIN_WORDS = 3, 80
+# The LLM can judge the session several times at once, and the bands are then averaged.
+# On the Speak & Improve dev set, 3 passes followed the examiners no better than one
+# (correlation 0.64 against 0.59 and 0.65 for two single runs) and took twice as long.
+PASSES, PASS_TEMPERATURE = 1, 0.2
 BANDS = [b / 2 for b in range(2, 19)]  # 1.0 .. 9.0
 
 CRITERION = {
@@ -131,8 +136,9 @@ def pronunciation_band(score: float) -> float:
     """Measured accuracy → band, calibrated against expert ratings of 1,340 adult learner
     sentences (speechocean762, see scripts/calibrate_pronunciation.py): each point is the
     median app score at one expert level. Below 0.45 the experts' levels 3 to 5 score
-    alike, so the band stays at 4. Capped at 8.5, because stress and intonation are not
-    measured."""
+    alike, so the band stays at 4. Capped at 8.5: word stress and intonation are part of
+    the IELTS band, and our measures of them did not predict the experts' scores (see the
+    README), so they cannot raise it."""
     points = [(0.45, 4.0), (0.535, 5.375), (0.67, 6.125), (0.84, 7.0), (0.93, 8.0), (0.98, 8.5)]
     band = np.interp(score, [p[0] for p in points], [p[1] for p in points])
     return round_band(float(band))
@@ -167,6 +173,8 @@ def measured(answers: list[dict]) -> dict:
         "vocabulary_errors": sum(c["category"] == "vocabulary" for c in corrections),
         "vocabulary_variety": round(moving_type_token_ratio(tokens), 2),
         "pronunciation": round(sum(p["score"] * w for p, w in scored) / max(1, sum(w for _, w in scored)), 2) if scored else None,
+        "pitch_range": round(float(np.median(ranges)), 1) if (ranges := [a["delivery"]["intonation"]["range"] for a in answers
+                                                               if a["delivery"] and a["delivery"].get("intonation")]) else None,
         "sounds": [{"expected": e, "heard": h, "count": n} for (e, h), n in sorted(sounds.items(), key=lambda kv: -kv[1])][:4],
     }
 
@@ -194,13 +202,15 @@ async def build(session: dict) -> dict:
         f"{'Examiner' if m['role'] == 'examiner' else 'Candidate'}: {m['text']}" for m in session["messages"]
     )
     numbers = "\n".join(f"- {label}: {stats[key]}" for key, label in LABELS.items() if stats[key] is not None)
-    judged = await llm.complete_json(
-        [
-            {"role": "system", "content": PROMPT},
-            {"role": "user", "content": f"Measured numbers:\n{numbers}\n\nTranscript:\n{transcript}"},
-        ],
-        SCHEMA,
-    )
+    messages = [
+        {"role": "system", "content": PROMPT},
+        {"role": "user", "content": f"Measured numbers:\n{numbers}\n\nTranscript:\n{transcript}"},
+    ]
+    passes = await asyncio.gather(*(llm.complete_json(messages, SCHEMA, PASS_TEMPERATURE, max_tokens=1500)
+                                  for _ in range(PASSES)))  # a normal judgement is about 650 tokens
+    judged = passes[0]  # its quotes, strengths and priorities are shown
+    for key in ("fluency_coherence", "lexical_resource", "grammar"):
+        judged[key]["band"] = sum(p[key]["band"] for p in passes) / len(passes)
 
     criteria = [
         {"id": "fluency_coherence", "name": "Fluency and Coherence", **judged["fluency_coherence"]},
@@ -237,10 +247,15 @@ def pronunciation_criterion(stats: dict) -> dict:
         summary = "Work on the sounds listed: they repeat across your answers."
     else:
         summary = "Your sounds are mostly clear, with a few one-off slips."
+    if (spread := stats.get("pitch_range")) is not None:
+        evidence.append(f"Your voice rose and fell over {spread:.0f} semitones (lively speech: 5 or more).")
+        if spread < prosody.FLAT_SEMITONES:
+            summary += (" Your voice stays quite flat: let it rise and fall more, and stress the"
+                        " important word in each phrase.")
     return {
         "id": "pronunciation",
         "name": "Pronunciation",
         "evidence": evidence,
-        "summary": summary + " (Measured from individual sounds only; stress and intonation are not checked yet.)",
+        "summary": summary + " (The band comes from individual sounds; word stress and intonation do not change it.)",
         "band": pronunciation_band(accuracy),
     }

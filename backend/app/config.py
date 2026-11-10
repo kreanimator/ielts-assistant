@@ -1,16 +1,36 @@
 """Settings, read from environment variables with sensible defaults."""
 import os
+import sys
 from pathlib import Path
+
+if sys.platform == "darwin":  # a few PyTorch operations have no Apple GPU version yet: run them on the CPU
+    os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+
+
+def best_device() -> str:
+    """cuda (NVIDIA), mps (Apple Silicon) or cpu."""
+    import torch
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
 
 # Your sessions, recordings and the database (git-ignored, never leaves this computer).
 DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parents[2] / "data"))
 
-# Any OpenAI-compatible server works: llama.cpp (default, see docker-compose.yml), Ollama, vLLM.
+# Any OpenAI-compatible server works: llama.cpp (default, started by make llm), Ollama, vLLM.
 LLM_URL = os.environ.get("LLM_URL", "http://127.0.0.1:8081/v1")
 LLM_MODEL = os.environ.get("LLM_MODEL", "qwen3.5-9b")
 
-WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "large-v3-turbo")
-DEVICE = os.environ.get("DEVICE", "cuda")
+# The device for Kokoro and the pronunciation model: cuda, mps or cpu (default: the best found).
+DEVICE = os.environ.get("DEVICE") or best_device()
+# Whisper runs on NVIDIA GPUs or the CPU (it has no Apple GPU version). Without an NVIDIA
+# GPU a smaller model keeps the live transcript quick; set WHISPER_MODEL=large-v3-turbo
+# for the best accuracy if your computer is fast enough.
+WHISPER_DEVICE = "cuda" if DEVICE == "cuda" else "cpu"
+WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "large-v3-turbo" if DEVICE == "cuda" else "small.en")
 
 # Kokoro voices offered in the app. The prefix is accent and gender:
 # bf_ British female, bm_ British male, af_ American female, am_ American male.
@@ -18,7 +38,7 @@ VOICES = ["bf_emma", "bf_isabella", "bm_george", "bm_fable", "af_heart", "af_bel
 DEFAULT_VOICE = os.environ.get("VOICE", "bf_emma")
 
 # While you speak, the live transcript is refreshed this often.
-PARTIAL_TRANSCRIPT_EVERY_S = float(os.environ.get("PARTIAL_TRANSCRIPT_EVERY_S", "1.0"))
+PARTIAL_TRANSCRIPT_EVERY_S = float(os.environ.get("PARTIAL_TRANSCRIPT_EVERY_S", "1.0" if DEVICE == "cuda" else "2.0"))
 
 # How long you must be silent before your answer counts as finished.
 # IELTS candidates pause to think, so this is longer than in a chat assistant.

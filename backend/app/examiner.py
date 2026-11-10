@@ -14,6 +14,13 @@ speaking for the IELTS test. Chat naturally, like a curious friend: react to wha
 they say, share a short opinion of your own sometimes, then ask one question.
 Start by greeting them, saying your name, and asking what they would like to talk about.""",
     },
+    "letter": {
+        "title": "By letter",
+        "description": "Pick a letter and get a random topic card from eslconversationquestions.com.",
+        "prompt": """You are {name}, a friendly English conversation partner. The user is practising
+speaking for the IELTS test with questions from a topic card. Listen to the answers and
+react like an interested friend; the questions themselves are given to you.""",
+    },
     "part1": {
         "title": "Part 1 · Interview",
         "description": "Short questions about familiar topics: home, work, hobbies.",
@@ -46,7 +53,7 @@ MODES["drill"] = {
     "prompt": "",  # written for the chosen drill (see drills.py)
 }
 # The single parts in test order, then the full exam, then drills.
-MODES = {k: MODES[k] for k in ("free", "part1", "part2", "part3", "exam", "drill")}
+MODES = {k: MODES[k] for k in ("free", "letter", "part1", "part2", "part3", "exam", "drill")}
 
 # In the full exam, Part 3 follows the Part 2 talk instead of opening the session.
 EXAM_PART3 = """You are {name}, an IELTS Speaking examiner running Part 3 of the test, the discussion.
@@ -77,11 +84,24 @@ CLOSING = {
     "part2": "Thank the candidate and say that Part 2 is over. Do not ask anything.",
     "part3": "Thank the candidate and say that the test is over. Do not ask anything.",
     "exam": "Say only \"Thank you.\" Do not ask anything.",
+    "letter": "Thank the learner for the chat, and say goodbye. Do not ask anything.",
     "drill": "Thank the learner, tell them in one sentence what they did well, and say goodbye. Do not ask anything.",
 }
 # After the long turn, one or two short questions round off Part 2.
 ROUNDING_OFF = ("Ask only one short, simple question about something the candidate mentioned "
                 "in the talk, in at most 15 words. Do not thank them: you just did.")
+
+
+# On a topic card (see esl.py) the questions are the card's, word for word.
+REACT_FRIENDLY = ("Reply with only a short, friendly reaction to the answer, at most twelve words, "
+                  "that shows you listened. Do not ask anything.")
+
+
+def card_steps(card: dict) -> list[tuple[str | None, str | None]]:
+    first, *rest = card["questions"]
+    return [("Greet the learner in one short sentence that says your name. Do not ask anything.",
+             f"Today's topic is {card['name'].lower()}. {first}"),
+            *[(REACT_FRIENDLY, q) for q in rest]]
 
 
 def book_steps(mode: str, test: dict, exam: bool = False) -> list[tuple[str | None, str | None]]:
@@ -112,7 +132,8 @@ class Conversation:
     finish() is called (the full exam does this when the part's time is up)."""
 
     def __init__(self, mode: str, examiner_name: str, topic: str | None = None, test: dict | None = None,
-                 exam: bool = False, task: str | None = None, prompt: str | None = None):
+                 exam: bool = False, task: str | None = None, prompt: str | None = None,
+                 card: dict | None = None):
         if prompt:  # a drill's own prompt
             system = prompt.format(name=examiner_name) + RULES
         elif mode == "part3" and exam:
@@ -122,6 +143,8 @@ class Conversation:
         self.steps = book_steps(mode, test, exam) if test and mode in ("part1", "part3") else []
         if mode == "part2":
             self.steps = [(ROUNDING_OFF, None)]
+        if card:
+            self.steps = card_steps(card)
         self.closing = CLOSING["exam" if exam else mode] if mode != "free" else None
         self.step = 0  # the next step to do
         self.follow_up = False  # the next turn asks for more on a short answer

@@ -124,14 +124,14 @@ def pick(marks: dict[str, float], n: int, seed: int) -> list[str]:
     return [rng.choice(b) for b in bins]
 
 
-async def main(dataset: str, n: int, parallel: int, seed: int, rejudge: bool):
+async def main(dataset: str, n: int, parallel: int, seed: int, rejudge: bool, tag: str):
     marks = {}
     for line in (CORPUS / "sla-marks" / f"{dataset}-sla-overall.tsv").read_text().splitlines():
         test_id, value = line.split("\t")
         marks[test_id] = float(value)
     tests = load(dataset)
     chosen = [t for t in pick({k: v for k, v in marks.items() if k in tests}, n, seed)]
-    out = OUT / f"bands-{dataset}-{len(chosen)}.json"
+    out = OUT / f"bands-{dataset}-{len(chosen)}{tag}.json"
     results = json.loads(out.read_text()) if out.exists() and not rejudge else {}  # resume after a stop
     # The analysed sessions are kept, so a changed report prompt can be checked quickly (--rejudge).
     cache = OUT / f"sessions-{dataset}.json"
@@ -228,6 +228,9 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--rejudge", action="store_true",
                         help="score again from the saved analysed sessions (after a report prompt change)")
+    parser.add_argument("--tag", default="", help="saved as bands-SET-N-TAG.json, to compare variants")
+    parser.add_argument("--passes", type=int, help="override report.PASSES")
+    parser.add_argument("--temperature", type=float, help="override report.PASS_TEMPERATURE")
     parser.add_argument("--summary", action="store_true", help="only print the summary of saved results")
     parser.add_argument("--fit", action="store_true",
                         help="fit report.CORRECTION on saved results (use the dev set, then check on eval)")
@@ -246,4 +249,8 @@ if __name__ == "__main__":
             print(p.name)
             summary(json.loads(p.read_text()))
     else:
-        asyncio.run(main(args.set, args.n, args.parallel, args.seed, args.rejudge))
+        if args.passes:
+            report.PASSES = args.passes
+        if args.temperature is not None:
+            report.PASS_TEMPERATURE = args.temperature
+        asyncio.run(main(args.set, args.n, args.parallel, args.seed, args.rejudge, f"-{args.tag}" if args.tag else ""))

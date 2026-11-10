@@ -4,6 +4,7 @@ HTTP:
   GET /api/options   voices, training modes and the LLM model, for the setup screen
   GET /api/books     the Speaking tests imported from your books (see books.py)
   GET /api/topics    topics to pick from: our A-Z list and your books' topics (see topics.py)
+  GET /api/esl       the topic cards for the "By letter" mode, without their questions (see esl.py)
   GET /api/drills    drills to pick from, and the ones your past sessions suggest (see drills.py)
   /api/sessions/...  past sessions and reports (see history.py)
   GET /              the Flutter app (after `make frontend`)
@@ -11,9 +12,12 @@ HTTP:
 
 WebSocket protocol on /ws:
   client → server  JSON  {"type": "start", "mode": "part1", "voice": "bf_emma", "topic": "travel",
-                          "book": "cambridge-ielts-08", "test": 2, "drill": "sound:θ"}
+                          "book": "cambridge-ielts-08", "test": 2, "drill": "sound:θ",
+                          "esl": "advice", "level": "mixed"}
                          (all optional; mode is one of /api/options "modes"; book and test pick
-                          a real test's questions instead of a topic, for every mode but free)
+                          a real test's questions instead of a topic, for every mode but free;
+                          esl and level pick the topic card in the "letter" mode, level is
+                          mixed or one of esl.LEVELS)
                    JSON  {"type": "mic", "turn": 3}                 mic opened after examiner_done turn 3;
                                                                     audio before it is ignored
                    bytes PCM16 mono 16 kHz microphone audio, any chunk size
@@ -61,7 +65,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import books, config, drills, exam, fluency, history, llm, storage, topics
+from . import books, config, drills, esl, exam, fluency, history, llm, prosody, storage, topics
 from .analyst import analyse
 from .examiner import MODES, Conversation
 from .pronunciation import PronunciationScorer
@@ -81,7 +85,7 @@ app.add_middleware(
 )
 app.include_router(history.router)
 
-transcriber = Transcriber(config.WHISPER_MODEL, config.DEVICE)
+transcriber = Transcriber(config.WHISPER_MODEL, config.WHISPER_DEVICE)
 transcribe_lock = asyncio.Lock()  # one Whisper call at a time
 speaker = Speaker(config.DEVICE)
 pronunciation_scorer = PronunciationScorer(config.DEVICE)
@@ -128,8 +132,14 @@ def list_books():
 
 @app.get("/api/topics")
 def list_topics():
-    """Topics for the topic field and the A-Z letter picker (see topics.py)."""
+    """Topics suggested in the topic field (see topics.py)."""
     return topics.all_topics()
+
+
+@app.get("/api/esl")
+def list_esl_topics():
+    """The topic cards for the letter picker (empty until `make esl-topics`)."""
+    return esl.catalogue()
 
 
 @app.get("/api/drills")
@@ -156,15 +166,20 @@ async def session(ws: WebSocket):
         voice = start.get("voice") if start.get("voice") in config.VOICES else config.DEFAULT_VOICE
         mode = start.get("mode") if start.get("mode") in MODES else "part1"
         topic = start.get("topic")
-        test = books.find_test(start.get("book", ""), start.get("test") or 0) if mode not in ("free", "drill") else None
+        test = books.find_test(start.get("book", ""), start.get("test") or 0) if mode not in ("free", "drill", "letter") else None
         drill = drills.parse(start.get("drill"))
+        card = esl.card(start.get("esl") or "", start.get("level") or "mixed") if mode == "letter" else None
+        if mode == "letter" and not card:
+            mode = "free"  # the topic cards are not downloaded
         if test:
             topic = f"{test['book']}, Test {test['test']}"
+        if card:
+            topic = card["name"]
         session_id = storage.create_session(mode, topic, voice, await llm.model_name())
         talk = Talk(ws, session_id, voice)
         await ws.send_json({"type": "ready", "session": session_id})
         try:
-            await exam.run(talk, mode, examiner_name(voice), topic, test, drill)
+            await exam.run(talk, mode, examiner_name(voice), topic, test, drill, card)
             await ws.send_json({"type": "finished"})  # the session ended by itself
         except EndRequested:
             pass
@@ -406,7 +421,8 @@ class Talk:
             # A sound drill checks the sentence you were asked to say, so a misheard word still counts.
             text = question if self.target else transcript.text
             pronunciation = await asyncio.to_thread(pronunciation_scorer.score, audio, text, self.target)
-            delivery = {"fluency": fluency.measure(transcript.words), "pronunciation": pronunciation}
+            delivery = {"fluency": fluency.measure(transcript.words), "pronunciation": pronunciation,
+                        "intonation": await asyncio.to_thread(prosody.intonation, audio)}
             storage.set_answer_field(self.session_id, answer, "delivery", delivery)
             await self.ws.send_json({"type": "delivery", "answer": answer, **delivery})
         except Exception:

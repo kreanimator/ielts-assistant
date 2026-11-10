@@ -84,12 +84,9 @@ Future<List<BookTest>> fetchBookTests() async {
 
 /// A topic to talk about: from the app's A-Z list or from your books.
 class Topic {
-  Topic.fromJson(Map<String, dynamic> json) : name = json['name'], fromBooks = json['source'] == 'books';
+  Topic.fromJson(Map<String, dynamic> json) : name = json['name'];
 
   final String name;
-  final bool fromBooks;
-
-  String get letter => name.substring(0, 1).toUpperCase();
 }
 
 Future<List<Topic>> fetchTopics() async {
@@ -120,4 +117,24 @@ Future<List<Drill>> fetchDrills() async {
   final reasons = {for (final s in json['suggested']) s['id'] as String: s['reason'] as String};
   final drills = [for (final d in json['drills']) Drill.fromJson(d, reasons[d['id']])];
   return [...drills.where((d) => d.reason != null), ...drills.where((d) => d.reason == null)];
+}
+
+/// A topic card from eslconversationquestions.com, for the "By letter" mode (see backend/app/esl.py).
+class EslTopic {
+  EslTopic.fromJson(Map<String, dynamic> json)
+    : slug = json['slug'],
+      name = json['name'],
+      url = json['url'],
+      letter = json['letter'],
+      questions = json['questions'];
+
+  final String slug, name, url, letter;
+  final int questions;
+}
+
+/// Empty until you run `make esl-topics`.
+Future<List<EslTopic>> fetchEslTopics() async {
+  final response = await http.get(apiUri('/api/esl'));
+  if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
+  return [for (final t in jsonDecode(utf8.decode(response.bodyBytes))) EslTopic.fromJson(t)];
 }

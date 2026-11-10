@@ -13,7 +13,7 @@ The examiner's fixed lines below are our own wording, not the official examiner 
 import random
 import time
 
-from . import config, drills, llm
+from . import config, drills, esl, llm
 from .examiner import Conversation
 
 PART2_INTRO = ("Now I'm going to give you a topic, and I'd like you to talk about it for one to two "
@@ -97,13 +97,16 @@ def subject(card: dict) -> str:
 
 
 async def run(talk, mode: str, name: str, topic: str | None, test: dict | None,
-              drill: tuple[str, str] | None = None):
+              drill: tuple[str, str] | None = None, card: dict | None = None):
     """Runs one session's examiner side. Returns when the session is over by itself;
     free conversation and Part 1/3 without a book test go on until you end them."""
     if mode == "drill":
         await run_drill(talk, name, topic, drill or ("language", "past"))
     elif mode == "exam":
         await exam(talk, name, topic, test)
+    elif mode == "letter" and card:
+        await talk.part(f"By letter · {card['name']}")
+        await interview(talk, Conversation(mode, name, card=card))
     elif mode == "part2":
         card = await cue_card(test, topic)
         if not test:
