@@ -111,3 +111,6 @@ without any books.
 12. ✅ Intonation: the pitch range of each answer, "Flat intonation" below 3 semitones, and in
    the report's Pronunciation evidence (advice only: it did not predict experts' scores).
    Word stress was tried on speechocean762 and left out: 9 of 10 warnings would be false
+13. ✅ Band accuracy checked on 168 held-out tests (MAE 0.72, no bias overall). Averaging
+   several judgements and mixing in measured numbers were tried and did not help reliably;
+   the report retries an LLM reply that is cut off or fails

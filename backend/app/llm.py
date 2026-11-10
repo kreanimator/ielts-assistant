@@ -21,23 +21,31 @@ async def model_name() -> str:
         return config.LLM_MODEL
 
 
-async def complete_json(messages: list[dict], schema: dict) -> dict:
-    """A reply that is guaranteed to match the JSON schema (llama.cpp enforces it while generating)."""
+async def complete_json(messages: list[dict], schema: dict, temperature: float = 0.2,
+                        max_tokens: int = 4096) -> dict:
+    """A reply that is guaranteed to match the JSON schema (llama.cpp enforces it while generating).
+
+    Rarely the model repeats itself inside a JSON string until it is stopped: max_tokens
+    stops it, and such a cut-off reply is asked for once more, as is a server error."""
     payload = {
         "model": config.LLM_MODEL,
         "messages": messages,
-        "temperature": 0.2,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
         "chat_template_kwargs": {"enable_thinking": False},
         "response_format": {"type": "json_schema", "json_schema": {"name": "reply", "schema": schema}},
     }
     async with httpx.AsyncClient(timeout=300) as client:  # long: the server may be busy with a chat
-        for attempt in range(2):  # once more if the server was full (its context is shared by all requests)
+        for attempt in range(2):
             response = await client.post(f"{config.LLM_URL}/chat/completions", json=payload)
-            if response.status_code < 500 or attempt:
-                break
-            await asyncio.sleep(2)
-        response.raise_for_status()
-        return json.loads(response.json()["choices"][0]["message"]["content"])
+            if response.status_code >= 500 and not attempt:  # the server was full: its context is shared
+                await asyncio.sleep(2)
+                continue
+            response.raise_for_status()
+            choice = response.json()["choices"][0]
+            if choice["finish_reason"] != "length":
+                return json.loads(choice["message"]["content"])
+        raise ValueError(f"the LLM reply was cut off at {max_tokens} tokens twice")
 
 
 async def stream_reply(messages: list[dict]) -> AsyncIterator[str]:

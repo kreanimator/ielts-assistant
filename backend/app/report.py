@@ -10,6 +10,7 @@
 These are practice estimates, not official scores. Both kinds of band are checked
 against human ratings: scripts/calibrate_pronunciation.py and scripts/calibrate_bands.py.
 """
+import asyncio
 import math
 import re
 
@@ -20,12 +21,16 @@ from . import llm, prosody
 FILLERS = {"um", "umm", "uh", "er", "erm", "ah", "hmm", "mm"}
 # The LLM's bands, corrected to match human examiners: band = slope * llm_band + offset.
 # Fitted with scripts/calibrate_bands.py --fit on 60 Speak & Improve dev tests and checked
-# on the held-out eval set (see the README). Uncorrected, the LLM is too low by about a
+# on held-out tests (see the README). Uncorrected, the LLM is too low by about a
 # third of a band for Fluency and a whole band for the others, at every level. Only that
 # shift is corrected: a steeper slope fitted the tests a little better but would inflate
 # strong speakers beyond the range the tests cover.
 CORRECTION = {"fluency_coherence": (1.0, 0.3), "lexical_resource": (1.0, 1.0), "grammar": (1.0, 1.1)}
 MIN_ANSWERS, MIN_WORDS = 3, 80
+# The LLM can judge the session several times at once, and the bands are then averaged.
+# On the Speak & Improve dev set, 3 passes followed the examiners no better than one
+# (correlation 0.64 against 0.59 and 0.65 for two single runs) and took twice as long.
+PASSES, PASS_TEMPERATURE = 1, 0.2
 BANDS = [b / 2 for b in range(2, 19)]  # 1.0 .. 9.0
 
 CRITERION = {
@@ -197,13 +202,15 @@ async def build(session: dict) -> dict:
         f"{'Examiner' if m['role'] == 'examiner' else 'Candidate'}: {m['text']}" for m in session["messages"]
     )
     numbers = "\n".join(f"- {label}: {stats[key]}" for key, label in LABELS.items() if stats[key] is not None)
-    judged = await llm.complete_json(
-        [
-            {"role": "system", "content": PROMPT},
-            {"role": "user", "content": f"Measured numbers:\n{numbers}\n\nTranscript:\n{transcript}"},
-        ],
-        SCHEMA,
-    )
+    messages = [
+        {"role": "system", "content": PROMPT},
+        {"role": "user", "content": f"Measured numbers:\n{numbers}\n\nTranscript:\n{transcript}"},
+    ]
+    passes = await asyncio.gather(*(llm.complete_json(messages, SCHEMA, PASS_TEMPERATURE, max_tokens=1500)
+                                  for _ in range(PASSES)))  # a normal judgement is about 650 tokens
+    judged = passes[0]  # its quotes, strengths and priorities are shown
+    for key in ("fluency_coherence", "lexical_resource", "grammar"):
+        judged[key]["band"] = sum(p[key]["band"] for p in passes) / len(passes)
 
     criteria = [
         {"id": "fluency_coherence", "name": "Fluency and Coherence", **judged["fluency_coherence"]},

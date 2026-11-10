@@ -6,11 +6,11 @@ after each session you get a report with an estimated band for each IELTS criter
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
-> **Status:** milestones 1–10 work: voice conversation with an AI examiner in the
+> **Status:** milestones 1–13 work: a one-command install on Linux and Apple Silicon Macs, voice conversation with an AI examiner in the
 > web app, the full exam with real timing, practice of each part on its own
 > (including the Part 2 cue card with a preparation minute), topics by letter,
 > drills for weak sounds and structures, corrections, fluency numbers and a
-> pronunciation check on each answer, a band report at the end of each session
+> pronunciation and intonation check on each answer, a band report at the end of each session
 > (checked against human examiners' scores), a history with your recordings and
 > progress charts, and real test questions imported from your own books. See [docs/PLAN.md](docs/PLAN.md).
 
@@ -124,7 +124,7 @@ datasets. Neither is included in this repository: download them yourself into
 | Criterion | Checked against | Result on held-out data |
 |---|---|---|
 | Pronunciation | [speechocean762](https://www.openslr.org/101) (CC BY 4.0): 5,000 English sentences by learners, each scored by five experts. 61 adult speakers held out | On average 0.16 bands too low, 0.57 bands off per speaker. (The first, uncalibrated mapping was 1.27 bands too low.) |
-| Fluency and Coherence, Lexical Resource, Grammatical Range and Accuracy | [Speak & Improve Corpus 2025](https://researchdatasets.cambridge.org/datasets/speak-and-improve-corpus-2025) (Cambridge University Press & Assessment; free after registration, noncommercial licence, no redistribution): spontaneous learner speech with examiner scores aligned to CEFR | Overall: on average 0.09 bands too low, 0.58 bands off per test; within half a band of the examiners in 53% of 60 held-out tests and within one band in 82%. (Before calibration the LLM was 0.8 bands too low, and squeezed everyone between 4.5 and 5.5.) |
+| Fluency and Coherence, Lexical Resource, Grammatical Range and Accuracy | [Speak & Improve Corpus 2025](https://researchdatasets.cambridge.org/datasets/speak-and-improve-corpus-2025) (Cambridge University Press & Assessment; free after registration, noncommercial licence, no redistribution): spontaneous learner speech with examiner scores aligned to CEFR | Overall, on 168 held-out tests: on average 0.06 bands too low, 0.72 bands off per test; within half a band of the examiners in 45% of tests and within one band in 76%. (Before calibration the LLM was 0.8 bands too low, and squeezed everyone between 4.5 and 5.5.) |
 
 ```bash
 make calibrate-pronunciation          # downloads speechocean762 (about 500 MB) the first time
@@ -136,10 +136,15 @@ Limits to keep in mind:
 - Speak & Improve scores are holistic CEFR levels, not IELTS bands. They are
   converted with the official IELTS–CEFR alignment (B1 = 4–5, B2 = 5.5–6.5,
   C1 = 7–8), which is itself approximate, so differences under half a band are noise.
-- The LLM's bands follow the examiners' only moderately (correlation 0.67): the
+- The LLM's bands follow the examiners' only moderately (correlation 0.55): the
   average is right, but a single session can be a band off, and very weak or very
-  strong speakers are pulled a little toward the middle. Look at the trend over
-  several sessions rather than one report.
+  strong speakers are pulled toward the middle (examiners' band 4: about 1.4 too
+  high; band 8: about 0.9 too low). Look at the trend over several sessions rather
+  than one report.
+- What did not help: judging each session three times and averaging, and mixing
+  measured numbers (speaking speed, grammar errors per 100 words) into the bands.
+  Fitted on 108 tests, the best mix was 0.05 bands closer on 120 others, which is
+  within chance, and it all but ignored the examiner-style judgement.
 - speechocean762 is read-aloud speech from Mandarin speakers; free speech and other
   accents may score a little differently.
 - Pronunciation comes from individual sounds and is capped at 8.5, because word
