@@ -97,7 +97,11 @@ function handle(msg) {
   if (msg.type === 'examiner') addLine('examiner', 'Examiner: ' + msg.text);
   if (msg.type === 'examiner_done') {
     const msLeft = Math.max(0, playEnd - playCtx.currentTime) * 1000;
-    setTimeout(() => { micMuted = false; setStatus('your turn'); }, msLeft + 300);
+    setTimeout(() => {
+      micMuted = false;
+      ws.send(JSON.stringify({ type: 'mic', turn: msg.turn }));  // the backend listens from here on
+      setStatus('your turn');
+    }, msLeft + 300);
   }
 }
 

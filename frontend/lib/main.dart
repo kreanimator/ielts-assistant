@@ -95,7 +95,7 @@ class _HomePageState extends State<HomePage> {
 
   /// The chosen book test, when the mode can use one.
   BookTest? get _chosenTest {
-    if (_mode != 'part1' && _mode != 'part3') return null;
+    if (_mode == 'free') return null;
     return _tests.where((t) => t.key == _test).firstOrNull;
   }
 
@@ -105,7 +105,8 @@ class _HomePageState extends State<HomePage> {
     if (options == null) return Scaffold(body: Center(child: _loading()));
 
     final voice = options.voices.firstWhere((v) => v.id == _voice);
-    final corrections = CorrectionsPanel(session: _session, live: _live);
+    final live = _live && _mode != 'exam'; // the full exam shows feedback only at the end
+    final corrections = CorrectionsPanel(session: _session, live: live);
     final setup = ListenableBuilder(
       listenable: _session,
       builder: (context, _) => SetupPanel(
@@ -129,7 +130,7 @@ class _HomePageState extends State<HomePage> {
       examinerName: voice.name,
       female: voice.gender == 'female',
       onStart: _start,
-      liveCorrections: _live,
+      liveCorrections: live,
       headerAction: headerAction,
     );
 
@@ -141,7 +142,7 @@ class _HomePageState extends State<HomePage> {
         final body = wide
             ? dialogue()
             : dialogue(
-                headerAction: _CorrectionsButton(session: _session, live: _live),
+                headerAction: _CorrectionsButton(session: _session, live: live),
               );
         return Scaffold(
           appBar: phone

@@ -45,6 +45,10 @@ class TurnDetector:
                     self.preroll.clear()
         return events
 
+    def set_silence(self, ms: int):
+        """How long a pause ends the answer (longer for the Part 2 talk)."""
+        self.vad.min_silence_samples = SAMPLE_RATE * ms / 1000
+
     def current(self) -> np.ndarray | None:
         """The answer heard so far, while the user is still speaking."""
         return np.concatenate(self.speech) if self.speech else None

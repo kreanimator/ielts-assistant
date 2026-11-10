@@ -8,7 +8,7 @@ import 'package:web/web.dart' as web;
 import 'api.dart';
 import 'audio.dart';
 
-enum Phase { idle, connecting, examinerSpeaking, yourTurn, hearing, thinking, ending, error }
+enum Phase { idle, connecting, examinerSpeaking, preparing, yourTurn, hearing, thinking, ending, error }
 
 class Message {
   Message({required this.fromExaminer, this.text = ''});
@@ -75,6 +75,32 @@ class AnswerFeedback {
   final String good, tip;
 }
 
+/// The Part 2 topic card.
+class CueCard {
+  CueCard.fromJson(Map<String, dynamic> json)
+    : task = json['task'],
+      points = List<String>.from(json['points']),
+      skippable = json['skippable'] ?? false;
+
+  final String task;
+  final List<String> points;
+  final bool skippable; // practice only: you may start talking before the minute is over
+}
+
+/// A countdown the backend started: preparation or speaking time.
+class Countdown {
+  Countdown(this.label, this.seconds, this.end);
+
+  final String label;
+  final int seconds;
+  final DateTime end;
+
+  Duration get left {
+    final left = end.difference(DateTime.now());
+    return left.isNegative ? Duration.zero : left;
+  }
+}
+
 /// One practice session: talks to the backend over /ws (protocol in backend/app/main.py).
 class Session extends ChangeNotifier {
   Phase phase = Phase.idle;
@@ -82,6 +108,9 @@ class Session extends ChangeNotifier {
   String partial = ''; // live transcript of the answer being spoken
   String error = '';
   String? id; // the stored session, once the backend has created it
+  String? partTitle; // e.g. "Part 2 · Long turn"
+  CueCard? cueCard; // shown from the Part 2 card until the next part
+  Countdown? countdown;
 
   /// Called with the session id when a session with answers has been saved.
   void Function(String id)? onEnded;
@@ -103,6 +132,9 @@ class Session extends ChangeNotifier {
     messages.clear();
     partial = '';
     id = null;
+    partTitle = null;
+    cueCard = null;
+    countdown = null;
     _setPhase(Phase.connecting);
     try {
       await BrowserAudio.startMic(_sendMic);
@@ -139,6 +171,16 @@ class Session extends ChangeNotifier {
     _setPhase(Phase.ending);
   }
 
+  /// Part 2 practice: start the talk before the preparation minute is over.
+  void skipPreparation() {
+    if (phase == Phase.preparing && cueCard?.skippable == true) _send({'type': 'skip'});
+  }
+
+  void _send(Map<String, dynamic> message) {
+    final ws = _ws;
+    if (ws != null && ws.readyState == web.WebSocket.OPEN) ws.send(jsonEncode(message).toJS);
+  }
+
   void stop() {
     final ws = _ws;
     _ws = null; // so onclose does not report an error
@@ -170,20 +212,50 @@ class Session extends ChangeNotifier {
       case 'ready':
         id = message['session'];
         _setPhase(Phase.examinerSpeaking);
+      case 'finished': // the session ended by itself; the last words may still be playing
+        _closeMic();
+        _setPhase(Phase.ending);
       case 'ended':
         _ws = null; // the backend closes the connection
-        _setPhase(Phase.idle);
-        onEnded?.call(message['session']);
+        _turnTimer = Timer(BrowserAudio.remaining, () {
+          _cleanUp();
+          _setPhase(Phase.idle);
+          onEnded?.call(message['session']);
+        });
       case 'examiner' when phase != Phase.ending:
+        _closeMic(); // also when an answer was cut off at its time limit
         if (messages.isEmpty || !messages.last.fromExaminer) messages.add(Message(fromExaminer: true));
         messages.last.text = '${messages.last.text} ${message['text']}'.trim();
         _setPhase(Phase.examinerSpeaking);
       case 'examiner_done':
         // Open the mic only after the queued speech has finished playing.
+        final turn = message['turn'];
         _turnTimer = Timer(BrowserAudio.remaining + const Duration(milliseconds: 300), () {
           _micOpen = true;
+          _send({'type': 'mic', 'turn': turn}); // the backend listens from here on
           _setPhase(Phase.yourTurn);
         });
+      case 'part':
+        partTitle = message['title'];
+        cueCard = null;
+        notifyListeners();
+      case 'cue_card':
+        cueCard = CueCard.fromJson(message);
+        _turnTimer = Timer(BrowserAudio.remaining, () => _setPhase(Phase.preparing));
+        notifyListeners();
+      case 'clock':
+        final seconds = message['seconds'] as num?;
+        countdown = seconds == null
+            ? null
+            : Countdown(
+                message['label'],
+                seconds.round(),
+                DateTime.now().add(BrowserAudio.remaining + Duration(milliseconds: (seconds * 1000).round())),
+              );
+        notifyListeners();
+      case 'time_up': // nothing was said before the time limit
+        _closeMic();
+        _setPhase(Phase.thinking);
       case 'listening':
         _setPhase(Phase.hearing);
       case 'partial':
@@ -212,10 +284,15 @@ class Session extends ChangeNotifier {
     _setPhase(Phase.error);
   }
 
-  void _cleanUp() {
+  void _closeMic() {
     _turnTimer?.cancel();
     _micOpen = false;
     partial = '';
+  }
+
+  void _cleanUp() {
+    _closeMic();
+    countdown = null;
     BrowserAudio.stop();
   }
 

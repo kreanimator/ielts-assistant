@@ -11,8 +11,11 @@ WebSocket protocol on /ws:
   client → server  JSON  {"type": "start", "mode": "part1", "voice": "bf_emma", "topic": "travel",
                           "book": "cambridge-ielts-08", "test": 2}
                          (all optional; mode is one of /api/options "modes"; book and test pick
-                          real questions for Part 1 or Part 3, instead of a topic)
+                          a real test's questions instead of a topic, for every mode but free)
+                   JSON  {"type": "mic", "turn": 3}                 mic opened after examiner_done turn 3;
+                                                                    audio before it is ignored
                    bytes PCM16 mono 16 kHz microphone audio, any chunk size
+                   JSON  {"type": "skip"}                           Part 2 practice: end the preparation now
                    JSON  {"type": "end"}                            finish: wait for pending feedback, then close
   server → client  JSON  {"type": "ready", "session": "<id>"}       models loaded, examiner about to speak
                    JSON  {"type": "listening"}                      the candidate started speaking
@@ -20,7 +23,13 @@ WebSocket protocol on /ws:
                    JSON  {"type": "transcript", "text": "..."}      the finished answer
                    JSON  {"type": "examiner", "text": "..."}        one sentence of the reply
                    bytes PCM16 mono 24 kHz speech for that sentence
-                   JSON  {"type": "examiner_done"}                  reply finished; client resumes the mic
+                   JSON  {"type": "examiner_done", "turn": 3}       reply finished; client resumes the mic
+                   JSON  {"type": "part", "title": "Part 2 · Long turn"}   a part of the test starts
+                   JSON  {"type": "cue_card", "task", "points", "seconds", "skippable"}   Part 2 card
+                   JSON  {"type": "clock", "label": "Preparation", "seconds": 60}
+                                                                    countdown from when the queued speech has
+                                                                    played; label null hides it
+                   JSON  {"type": "time_up"}                        time ran out before anything was said
                    JSON  {"type": "delivery", "answer": 0,          measured right after the answer
                           "fluency": {"seconds", "words", "wpm", "pauses", "longest_pause", "fillers", "repetitions"},
                           "pronunciation": {"score": 0..1, "words": [{"word", "expected", "heard"}],
@@ -28,12 +37,16 @@ WebSocket protocol on /ws:
                    JSON  {"type": "feedback", "answer": 0,          feedback on answer number 0, 1, ...
                           "corrections": [{"category", "original", "better", "why"}],
                           "good": "...", "tip": "..."}             arrives a few seconds after the answer
+                   JSON  {"type": "finished"}                       the session ended by itself (end of the test)
                    JSON  {"type": "ended", "session": "<id>"}       everything saved; the report can be requested
+
+Timing (the full exam and Part 2) is kept here on the server; see exam.py.
 """
 import asyncio
 import contextlib
 import json
 import logging
+import math
 import time
 from pathlib import Path
 
@@ -43,7 +56,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import books, config, fluency, history, llm, storage
+from . import books, config, exam, fluency, history, llm, storage
 from .analyst import analyse
 from .examiner import MODES, Conversation
 from .pronunciation import PronunciationScorer
@@ -113,144 +126,263 @@ def dev_page():
     return FileResponse(DEV_PAGE)
 
 
+class EndRequested(Exception):
+    """The client pressed End: finish the session now."""
+
+
 @app.websocket("/ws")
 async def session(ws: WebSocket):
     await ws.accept()
-    tasks = set()  # feedback still being worked out
-    session_id = None
-
-    def in_background(work):
-        task = asyncio.create_task(work)
-        tasks.add(task)
-        task.add_done_callback(tasks.discard)
-
+    talk = None
     try:
         start = await ws.receive_json()
         voice = start.get("voice") if start.get("voice") in config.VOICES else config.DEFAULT_VOICE
         mode = start.get("mode") if start.get("mode") in MODES else "part1"
         topic = start.get("topic")
-        test = books.find_test(start.get("book", ""), start.get("test") or 0) if mode in ("part1", "part3") else None
+        test = books.find_test(start.get("book", ""), start.get("test") or 0) if mode != "free" else None
         if test:
             topic = f"{test['book']}, Test {test['test']}"
-        conversation = Conversation(mode, examiner_name(voice), topic, test)
         session_id = storage.create_session(mode, topic, voice, await llm.model_name())
-        turns = TurnDetector(config.END_OF_TURN_SILENCE_MS)
+        talk = Talk(ws, session_id, voice)
         await ws.send_json({"type": "ready", "session": session_id})
-        await examiner_turn(ws, session_id, conversation, voice)
+        try:
+            await exam.run(talk, mode, examiner_name(voice), topic, test)
+            await ws.send_json({"type": "finished"})  # the session ended by itself
+        except EndRequested:
+            pass
+        await talk.finish()
+        await ws.send_json({"type": "ended", "session": session_id})
+        await ws.close()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        if talk:
+            talk.cancel()
+            if storage.get_session(talk.session_id)["answers"] == 0:
+                storage.delete_session(talk.session_id)  # nothing was said: don't clutter the history
+            log.info("session %s closed", talk.session_id)
 
-        partial = None  # the live-transcript task, if one is running
-        last_partial = 0.0
-        while True:
-            message = await ws.receive()
-            if message["type"] == "websocket.disconnect":
+
+class Talk:
+    """One session's audio both ways: hears the candidate's answers and speaks the examiner.
+
+    The mic is gated by turns: after each examiner_done (turn n) the client opens its mic
+    and sends {"type": "mic", "turn": n}. Audio before that is ignored, so speech from an
+    answer that was cut off can never leak into the next one."""
+
+    def __init__(self, ws: WebSocket, session_id: str, voice: str):
+        self.ws, self.session_id, self.voice = ws, session_id, voice
+        self.tasks = set()  # feedback still being worked out
+        self.answers = 0
+        self.turn = 0  # examiner turns that handed over to the candidate
+        self.playing_until = 0.0  # when the client will have played all speech sent so far
+        self.was_cut = False  # the last answer was cut off at its time limit
+        self.unchecked = []  # answers waiting for the analyst: (answer, question, text)
+        self.turns = TurnDetector(config.END_OF_TURN_SILENCE_MS)
+
+    def in_background(self, work):
+        task = asyncio.create_task(work)
+        self.tasks.add(task)
+        task.add_done_callback(self.tasks.discard)
+
+    def check_answers(self):
+        """Starts the analyst on the answers given so far. Called when the candidate's turn
+        starts, so the analyst never competes with the examiner's reply on the LLM server."""
+        for answer, question, text in self.unchecked:
+            self.in_background(self.send_feedback(answer, question, text))
+        self.unchecked = []
+
+    async def finish(self):
+        """Waits for pending feedback, so the report has it."""
+        self.check_answers()
+        if self.tasks:
+            await asyncio.wait(self.tasks, timeout=60)
+
+    def cancel(self):
+        for task in self.tasks:
+            task.cancel()
+
+    async def receive(self, until: float | None = None):
+        """The next message, or None once `until` (time.monotonic()) has passed."""
+        timeout = None if until is None else max(0.0, until - time.monotonic())
+        try:
+            message = await asyncio.wait_for(self.ws.receive(), timeout)
+        except asyncio.TimeoutError:
+            return None
+        if message["type"] == "websocket.disconnect":
+            raise WebSocketDisconnect()
+        if message.get("text"):
+            message["json"] = json.loads(message["text"])
+            if message["json"].get("type") == "end":
+                raise EndRequested()
+        return message
+
+    # ---- the examiner ----
+
+    async def part(self, title: str):
+        await self.ws.send_json({"type": "part", "title": title})
+
+    async def clock(self, label: str | None, seconds: float | None = None):
+        """A countdown in the app, starting when the speech sent so far has played."""
+        await self.ws.send_json({"type": "clock", "label": label, "seconds": seconds})
+
+    async def speak(self, sentence: str):
+        await self.ws.send_json({"type": "examiner", "text": sentence})
+        audio = await asyncio.to_thread(speaker.speak, sentence, self.voice)
+        await self.ws.send_bytes(to_pcm16(audio))
+        self.playing_until = max(self.playing_until, time.monotonic()) + len(audio) / 24000
+
+    async def handover(self):
+        """The examiner has finished: the candidate's turn starts once the speech has played."""
+        self.check_answers()
+        self.turn += 1
+        await self.ws.send_json({"type": "examiner_done", "turn": self.turn})
+
+    async def say(self, text: str, done: bool = True):
+        """A fixed line of the examiner's script."""
+        for sentence in llm.SENTENCE_END.split(text):
+            await self.speak(sentence)
+        storage.add_message(self.session_id, "examiner", text)
+        log.info("examiner: %s", text)
+        if done:
+            await self.handover()
+
+    async def examiner_turn(self, conversation: Conversation):
+        """Streams the reply sentence by sentence: each one is spoken while the next is written."""
+        reply = []
+        instruction, question = conversation.next_step()  # a book test's question, said word for word
+
+        async def say(sentence: str):
+            reply.append(sentence)
+            await self.speak(sentence)
+
+        if instruction is not None:
+            # aclosing: stopping early closes the LLM request at once
+            async with contextlib.aclosing(llm.stream_sentences(conversation.messages())) as sentences:
+                async for sentence in sentences:
+                    if question:  # only a short reaction before the test question, never a question of its own
+                        if not sentence.endswith("?"):
+                            await say(sentence)
+                        break
+                    await say(sentence)
+        if question:
+            await say(question)
+        text = " ".join(reply)
+        conversation.add_examiner(text)
+        storage.add_message(self.session_id, "examiner", text)
+        log.info("examiner: %s", text)
+        if not conversation.over:
+            await self.handover()
+
+    async def cue_card(self, card: dict, seconds: float, skippable: bool):
+        """Shows the Part 2 card and waits out the preparation time (or until skipped)."""
+        storage.add_message(self.session_id, "examiner", exam.card_text(card))
+        await self.ws.send_json({"type": "cue_card", **card, "seconds": seconds, "skippable": skippable})
+        await self.clock("Preparation", seconds)
+        until = max(self.playing_until, time.monotonic()) + seconds
+        while (message := await self.receive(until)) is not None:
+            if skippable and message.get("json", {}).get("type") == "skip":
                 break
-            if message.get("text"):
-                if json.loads(message["text"]).get("type") == "end":
-                    if tasks:
-                        await asyncio.wait(tasks, timeout=60)
-                    await ws.send_json({"type": "ended", "session": session_id})
-                    await ws.close()
-                    break
+        await self.clock(None)
+
+    # ---- the candidate ----
+
+    async def answer(self, question: str, cut_at: float | None = None, limit: float | None = None,
+                     silence_ms: int | None = None) -> str | None:
+        """Waits for the candidate's answer and returns its text.
+
+        cut_at (time.monotonic()) and limit (seconds after the mic opens) end the answer
+        where it is; if nothing was said by then, returns None. silence_ms: the pause that
+        ends the answer (longer in the Part 2 talk, where people stop to think)."""
+        self.was_cut = False
+        self.turns.reset()
+        self.turns.set_silence(silence_ms or config.END_OF_TURN_SILENCE_MS)
+        mic_open = False
+        partial, last_partial = None, 0.0
+        while True:
+            message = await self.receive(cut_at)
+            if message is None:  # time is up
+                if partial:
+                    await partial
+                heard = self.turns.current()
+                if heard is None or len(heard) < SAMPLE_RATE // 2:
+                    await self.ws.send_json({"type": "time_up"})
+                    return None
+                self.was_cut = True
+                return await self.hear(question, heard)
+            if "json" in message:
+                if message["json"].get("type") == "mic" and message["json"].get("turn") == self.turn:
+                    mic_open = True
+                    if limit:
+                        cut_at = min(cut_at or math.inf, time.monotonic() + limit)
+                        await self.clock("Speaking time", limit)
+                continue
+            if not mic_open or not message.get("bytes"):
                 continue
 
-            for event in turns.feed(message["bytes"]):
+            for event in self.turns.feed(message["bytes"]):
                 if isinstance(event, str):
-                    await ws.send_json({"type": "listening"})
+                    await self.ws.send_json({"type": "listening"})
                     continue
                 if partial:
                     await partial  # let it finish, so it can't arrive after the final text
                     partial = None
-                transcript = await transcribe(event, with_words=True)
-                text = transcript.text
-                log.info("candidate: %s", text)
-                if not text:
-                    continue
-                await ws.send_json({"type": "transcript", "text": text})
-                question = conversation.last_question()
-                conversation.add_candidate(text)
-                answer = conversation.answer_count() - 1
-                storage.add_message(session_id, "candidate", text, answer)
-                in_background(asyncio.to_thread(storage.save_answer_audio, session_id, answer, event))
-                in_background(send_delivery(ws, session_id, answer, event, transcript))
-                await examiner_turn(ws, session_id, conversation, voice)
-                # Analyse while the examiner's reply plays, so it never delays the examiner.
-                in_background(send_feedback(ws, session_id, answer, question, text))
-                turns.reset()
+                text = await self.hear(question, event)
+                if text:
+                    return text
 
-            heard = turns.current()
+            heard = self.turns.current()
             due = time.monotonic() - last_partial > config.PARTIAL_TRANSCRIPT_EVERY_S
             # Whisper invents text for very short audio, so wait for a second of speech.
             long_enough = heard is not None and len(heard) >= SAMPLE_RATE
             if long_enough and due and (partial is None or partial.done()):
                 last_partial = time.monotonic()
-                partial = asyncio.create_task(send_partial(ws, heard))
-    except WebSocketDisconnect:
-        pass
-    finally:
-        for task in tasks:
-            task.cancel()
-        if session_id and storage.get_session(session_id)["answers"] == 0:
-            storage.delete_session(session_id)  # nothing was said: don't clutter the history
-        log.info("session %s closed", session_id)
+                # Only the last 20 s: the live text stays fast during a two-minute talk.
+                partial = asyncio.create_task(self.send_partial(heard[-20 * SAMPLE_RATE:]))
 
+    async def hear(self, question: str, audio: np.ndarray) -> str:
+        """Transcribes one answer, saves it and starts its checks. Returns "" for no words."""
+        transcript = await transcribe(audio, with_words=True)
+        text = transcript.text
+        log.info("candidate: %s", text)
+        if not text:
+            return ""
+        await self.ws.send_json({"type": "transcript", "text": text})
+        answer = self.answers
+        self.answers += 1
+        storage.add_message(self.session_id, "candidate", text, answer)
+        self.in_background(asyncio.to_thread(storage.save_answer_audio, self.session_id, answer, audio))
+        self.in_background(self.send_delivery(answer, audio, transcript))
+        self.unchecked.append((answer, question, text))  # analysed while the examiner's reply plays
+        return text
 
-async def send_feedback(ws: WebSocket, session_id: str, answer: int, question: str, text: str):
-    try:
-        feedback = await analyse(question, text)
-        storage.set_answer_field(session_id, answer, "feedback", feedback)
-        await ws.send_json({"type": "feedback", "answer": answer, **feedback})
-    except Exception:  # feedback is extra: never end the session because of it
-        log.exception("feedback failed")
+    async def send_partial(self, audio: np.ndarray):
+        text = (await transcribe(audio)).text
+        if text:
+            await self.ws.send_json({"type": "partial", "text": text})
 
+    async def send_feedback(self, answer: int, question: str, text: str):
+        try:
+            feedback = await analyse(question, text)
+            storage.set_answer_field(self.session_id, answer, "feedback", feedback)
+            await self.ws.send_json({"type": "feedback", "answer": answer, **feedback})
+        except Exception:  # feedback is extra: never end the session because of it
+            log.exception("feedback failed")
 
-async def send_delivery(ws: WebSocket, session_id: str, answer: int, audio: np.ndarray, transcript: Transcript):
-    """Measured fluency and pronunciation: fast, so it arrives right after the answer."""
-    try:
-        pronunciation = await asyncio.to_thread(pronunciation_scorer.score, audio, transcript.text)
-        delivery = {"fluency": fluency.measure(transcript.words), "pronunciation": pronunciation}
-        storage.set_answer_field(session_id, answer, "delivery", delivery)
-        await ws.send_json({"type": "delivery", "answer": answer, **delivery})
-    except Exception:
-        log.exception("delivery check failed")
+    async def send_delivery(self, answer: int, audio: np.ndarray, transcript: Transcript):
+        """Measured fluency and pronunciation: fast, so it arrives right after the answer."""
+        try:
+            pronunciation = await asyncio.to_thread(pronunciation_scorer.score, audio, transcript.text)
+            delivery = {"fluency": fluency.measure(transcript.words), "pronunciation": pronunciation}
+            storage.set_answer_field(self.session_id, answer, "delivery", delivery)
+            await self.ws.send_json({"type": "delivery", "answer": answer, **delivery})
+        except Exception:
+            log.exception("delivery check failed")
 
 
 async def transcribe(audio: np.ndarray, with_words: bool = False) -> Transcript:
     async with transcribe_lock:
         return await asyncio.to_thread(transcriber.transcribe, audio, with_words)
-
-
-async def send_partial(ws: WebSocket, audio: np.ndarray):
-    text = (await transcribe(audio)).text
-    if text:
-        await ws.send_json({"type": "partial", "text": text})
-
-
-async def examiner_turn(ws: WebSocket, session_id: str, conversation: Conversation, voice: str):
-    """Streams the reply sentence by sentence: each one is spoken while the next is written."""
-    reply = []
-    _, question = conversation.next_step()  # a book test's question, said word for word
-
-    async def say(sentence: str):
-        reply.append(sentence)
-        await ws.send_json({"type": "examiner", "text": sentence})
-        audio = await asyncio.to_thread(speaker.speak, sentence, voice)
-        await ws.send_bytes(to_pcm16(audio))
-
-    # aclosing: stopping early closes the LLM request at once
-    async with contextlib.aclosing(llm.stream_sentences(conversation.messages())) as sentences:
-        async for sentence in sentences:
-            if question:  # only a short reaction before the test question, never a question of its own
-                if not sentence.endswith("?"):
-                    await say(sentence)
-                break
-            await say(sentence)
-    if question:
-        await say(question)
-    text = " ".join(reply)
-    conversation.add_examiner(text)
-    storage.add_message(session_id, "examiner", text)
-    log.info("examiner: %s", text)
-    await ws.send_json({"type": "examiner_done"})
 
 
 def examiner_name(voice: str) -> str:

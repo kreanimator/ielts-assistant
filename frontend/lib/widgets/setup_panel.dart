@@ -62,7 +62,7 @@ class SetupPanel extends StatelessWidget {
               onTap: () => onMode(m.id),
             ),
           ),
-        if (mode == 'part1' || mode == 'part3') ...[
+        if (mode != 'free') ...[
           const SizedBox(height: 16),
           _QuestionsPicker(tests: tests, test: test, mode: mode, enabled: enabled, onTest: onTest),
         ],
@@ -70,8 +70,8 @@ class SetupPanel extends StatelessWidget {
         TextField(
           controller: topic,
           enabled: enabled && test == null,
-          decoration: const InputDecoration(
-            labelText: 'Topic (optional)',
+          decoration: InputDecoration(
+            labelText: mode == 'part2' || mode == 'exam' ? 'Cue card topic (optional)' : 'Topic (optional)',
             hintText: 'e.g. hometown, technology',
             border: OutlineInputBorder(),
           ),
@@ -90,9 +90,13 @@ class SetupPanel extends StatelessWidget {
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('Live corrections'),
-          subtitle: const Text('Off: see them only when the session ends, like in the real test.'),
-          value: liveCorrections,
-          onChanged: onLiveCorrections,
+          subtitle: Text(
+            mode == 'exam'
+                ? 'Always off in the full exam: you see them when it ends.'
+                : 'Off: see them only when the session ends, like in the real test.',
+          ),
+          value: liveCorrections && mode != 'exam',
+          onChanged: mode == 'exam' ? null : onLiveCorrections,
         ),
         ListTile(
           contentPadding: EdgeInsets.zero,
@@ -151,7 +155,7 @@ class _QuestionsPicker extends StatelessWidget {
         if (chosen != null)
           Padding(
             padding: const EdgeInsets.only(top: 6, left: 4),
-            child: Text('Topics: ${chosen.topics(mode).join(', ')}', style: text.bodySmall),
+            child: Text(chosen.outline(mode), style: text.bodySmall),
           ),
       ],
     );

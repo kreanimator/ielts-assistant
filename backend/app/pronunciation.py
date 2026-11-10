@@ -70,12 +70,17 @@ class PronunciationScorer:
 
     def heard(self, audio: np.ndarray) -> list[str]:
         """The phonemes in the audio, in our simple set."""
-        inputs = self.extractor(audio, sampling_rate=SAMPLE_RATE, return_tensors="pt").input_values
-        with torch.no_grad():
-            logits = self.model(inputs.to(self.model.device, self.model.dtype)).logits[0]
-        ids = torch.unique_consecutive(logits.argmax(-1)).tolist()  # CTC: merge repeats, drop blanks
-        symbols = [self.symbols[i] for i in ids if i > 3]  # 0-3 are <pad> <s> </s> <unk>
-        return " ".join(HEARD.get(s, s) for s in symbols).split()
+        # In 20 s pieces: a two-minute Part 2 talk in one go would need a lot of GPU memory.
+        piece = 20 * SAMPLE_RATE
+        heard = []
+        for start in range(0, len(audio), piece):
+            inputs = self.extractor(audio[start:start + piece], sampling_rate=SAMPLE_RATE, return_tensors="pt").input_values
+            with torch.no_grad():
+                logits = self.model(inputs.to(self.model.device, self.model.dtype)).logits[0]
+            ids = torch.unique_consecutive(logits.argmax(-1)).tolist()  # CTC: merge repeats, drop blanks
+            symbols = [self.symbols[i] for i in ids if i > 3]  # 0-3 are <pad> <s> </s> <unk>
+            heard += " ".join(HEARD.get(s, s) for s in symbols).split()
+        return heard
 
     def pronunciations(self, word: str) -> list[list[str]]:
         """All dictionary pronunciations of a word (ARPAbet), or a guess for unknown words."""

@@ -63,7 +63,13 @@ class BookTest {
   String get key => '$bookId#$number';
   String get label => '$bookTitle · Test $number';
 
-  List<String> topics(String mode) => mode == 'part1' ? part1 : part3;
+  /// What this test gives the chosen mode.
+  String outline(String mode) => switch (mode) {
+    'part1' => 'Topics: ${part1.join(', ')}',
+    'part2' => 'Cue card: $part2',
+    'part3' => 'Topics: ${part3.join(', ')}',
+    _ => 'Part 1: ${part1.join(', ')}\nPart 2: $part2\nPart 3: ${part3.join(', ')}',
+  };
 }
 
 /// All imported tests, book by book (empty until you run `make books`).

@@ -78,7 +78,7 @@ without any books.
 
 1. ✅ Backend voice loop: mic → transcript → LLM reply → spoken reply
 2. ✅ Flutter web UI: dialogue window with avatar, live transcript, mode and voice picker
-   (free conversation, Part 1, Part 3; Part 2 and the full exam come with milestone 7)
+   (free conversation, Part 1, Part 3; Part 2 and the full exam came with milestone 7)
 3. ✅ Live analyst and corrections panel (grammar, vocabulary, fluency, coherence;
    can be hidden until the session ends)
 4. ✅ Measured fluency (speed, pauses, fillers, repetitions) and pronunciation scoring
@@ -90,4 +90,8 @@ without any books.
 6. ✅ Book importer: Speaking tests from your own PDF books (text layer, or OCR for scanned
    pages), structured by the LLM into Part 1 topics, the Part 2 cue card and Part 3 topics;
    Part 1 and Part 3 practice can use a real test's questions
-7. Full exam mode with strict timing
+7. ✅ Full exam with strict timing (Part 1 and Part 3 about 5 minutes each, with no new question in
+   the last 30 seconds and an answer cut off at the limit; Part 2 with the cue card, one minute
+   to prepare and up to two minutes of talk, cut off at the limit, then a rounding-off question;
+   no live corrections; the report at the end), and Part 2 as its own practice mode. Timing is
+   kept on the server, so a slow browser cannot stretch it

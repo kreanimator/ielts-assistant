@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../session.dart';
@@ -52,6 +54,7 @@ class _DialoguePanelState extends State<DialoguePanel> {
     Phase.idle => 'Ready when you are',
     Phase.connecting => 'Starting…',
     Phase.examinerSpeaking => '${widget.examinerName} is speaking',
+    Phase.preparing => 'Prepare your talk: you can make notes',
     Phase.yourTurn => 'Your turn: speak when you are ready',
     Phase.hearing => 'Listening…',
     Phase.thinking => '${widget.examinerName} is thinking',
@@ -79,8 +82,13 @@ class _DialoguePanelState extends State<DialoguePanel> {
                 color: s.phase == Phase.error ? theme.colorScheme.error : theme.colorScheme.onSurfaceVariant,
               ),
             ),
+            if (s.active && (s.partTitle != null || s.countdown != null)) ...[
+              const SizedBox(height: 8),
+              _PartAndClock(session: s),
+            ],
             const SizedBox(height: 12),
             const Divider(height: 1),
+            if (s.active && s.cueCard != null) _CueCardView(session: s),
             Expanded(
               child: s.messages.isEmpty
                   ? Center(
@@ -205,6 +213,137 @@ class _LiveTranscript extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The part of the test, and the time left for preparing or speaking.
+class _PartAndClock extends StatefulWidget {
+  const _PartAndClock({required this.session});
+
+  final Session session;
+
+  @override
+  State<_PartAndClock> createState() => _PartAndClockState();
+}
+
+class _PartAndClockState extends State<_PartAndClock> {
+  late final Timer _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(milliseconds: 250), (_) => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _tick.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final part = widget.session.partTitle;
+    final countdown = widget.session.countdown;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.center,
+      children: [
+        if (part != null) Chip(label: Text(part), visualDensity: VisualDensity.compact),
+        if (countdown != null)
+          Chip(
+            visualDensity: VisualDensity.compact,
+            avatar: Icon(Icons.timer_outlined, size: 18, color: _color(theme, countdown)),
+            label: Text(
+              '${countdown.label} ${_format(countdown.left)}',
+              style: TextStyle(fontFeatures: const [FontFeature.tabularFigures()], color: _color(theme, countdown)),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Color? _color(ThemeData theme, Countdown c) => c.left.inSeconds < 15 ? theme.colorScheme.error : null;
+
+  String _format(Duration d) {
+    final seconds = (d.inMilliseconds / 1000).ceil();
+    return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+  }
+}
+
+/// The Part 2 topic card, with room for notes like the paper in the real test.
+class _CueCardView extends StatefulWidget {
+  const _CueCardView({required this.session});
+
+  final Session session;
+
+  @override
+  State<_CueCardView> createState() => _CueCardViewState();
+}
+
+class _CueCardViewState extends State<_CueCardView> {
+  final _notes = TextEditingController();
+
+  @override
+  void dispose() {
+    _notes.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final card = widget.session.cueCard!;
+    final preparing = widget.session.phase == Phase.preparing;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 420),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: Card(
+          color: theme.colorScheme.secondaryContainer,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(card.task, style: theme.textTheme.titleMedium),
+                const SizedBox(height: 8),
+                Text('You should say:', style: theme.textTheme.bodyMedium),
+                for (final point in card.points)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12, top: 2),
+                    child: Text('•  $point', style: theme.textTheme.bodyMedium),
+                  ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _notes,
+                  minLines: 2,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    labelText: 'Your notes (not saved)',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                if (preparing && card.skippable) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: widget.session.skipPreparation,
+                      icon: const Icon(Icons.skip_next),
+                      label: const Text('I\'m ready to speak'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
