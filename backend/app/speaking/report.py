@@ -11,12 +11,12 @@ These are practice estimates, not official scores. Both kinds of band are checke
 against human ratings: scripts/calibrate_pronunciation.py and scripts/calibrate_bands.py.
 """
 import asyncio
-import math
 import re
 
 import numpy as np
 
 from ..core import llm
+from ..core.bands import round_band
 from . import prosody
 
 FILLERS = {"um", "umm", "uh", "er", "erm", "ah", "hmm", "mm"}
@@ -126,11 +126,6 @@ LABELS = {
     "vocabulary_errors": "wrong word choices found",
     "vocabulary_variety": "share of different words in each 40-word stretch, 0 to 1 (higher means more varied)",
 }
-
-
-def round_band(value: float) -> float:
-    """IELTS rounding: to the nearest half band, .25 and .75 round up."""
-    return math.floor(value * 2 + 0.5) / 2
 
 
 def pronunciation_band(score: float) -> float:

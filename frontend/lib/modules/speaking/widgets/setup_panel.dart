@@ -31,6 +31,7 @@ class SetupPanel extends StatelessWidget {
     required this.liveCorrections,
     required this.onLiveCorrections,
     required this.onHistory,
+    required this.onHome,
   });
 
   final Options options;
@@ -52,7 +53,7 @@ class SetupPanel extends StatelessWidget {
   final ValueChanged<String> onMode, onVoice;
   final bool liveCorrections; // can be changed during a session too
   final ValueChanged<bool> onLiveCorrections;
-  final VoidCallback onHistory;
+  final VoidCallback onHistory, onHome;
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +61,15 @@ class SetupPanel extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: enabled ? onHome : null,
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('All skills'),
+          ),
+        ),
+        const SizedBox(height: 4),
         Text('IELTS Speaking', style: text.titleLarge),
         Text('Practice session', style: text.bodyMedium),
         const SizedBox(height: 12),
@@ -98,11 +108,11 @@ class SetupPanel extends StatelessWidget {
         if (mode != 'letter' && !(mode == 'drill' && (drill?.isSound ?? false))) const SizedBox(height: 16),
         if (mode != 'letter' && !(mode == 'drill' && (drill?.isSound ?? false)))
           _TopicField(
-          controller: topic,
-          topics: topics,
-          enabled: enabled && test == null,
-          label: mode == 'part2' || mode == 'exam' ? 'Cue card topic (optional)' : 'Topic (optional)',
-        ),
+            controller: topic,
+            topics: topics,
+            enabled: enabled && test == null,
+            label: mode == 'part2' || mode == 'exam' ? 'Cue card topic (optional)' : 'Topic (optional)',
+          ),
         const SizedBox(height: 16),
         DropdownMenu<String>(
           key: ValueKey(voice),
@@ -240,9 +250,7 @@ class _TopicFieldState extends State<_TopicField> {
           child: ListView(
             padding: EdgeInsets.zero,
             shrinkWrap: true,
-            children: [
-              for (final o in options) ListTile(dense: true, title: Text(o), onTap: () => onSelected(o)),
-            ],
+            children: [for (final o in options) ListTile(dense: true, title: Text(o), onTap: () => onSelected(o))],
           ),
         ),
       ),
@@ -328,14 +336,18 @@ class _CardPicker extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: chosen == null
-                ? Text('Choose a letter, or roll one. Without a card, Start deals a random one.',
-                    style: theme.textTheme.bodyMedium)
+                ? Text(
+                    'Choose a letter, or roll one. Without a card, Start deals a random one.',
+                    style: theme.textTheme.bodyMedium,
+                  )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(chosen.name, style: theme.textTheme.titleLarge),
-                      Text('8 of its ${chosen.questions} questions, asked by the examiner',
-                          style: theme.textTheme.bodySmall),
+                      Text(
+                        '8 of its ${chosen.questions} questions, asked by the examiner',
+                        style: theme.textTheme.bodySmall,
+                      ),
                       TextButton.icon(
                         style: TextButton.styleFrom(padding: EdgeInsets.zero),
                         onPressed: () => web.window.open(chosen.url, '_blank'),

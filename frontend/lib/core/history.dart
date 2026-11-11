@@ -1,11 +1,8 @@
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
 import 'api.dart';
-import 'session.dart';
 
-/// Past sessions and their reports (backend/app/core/history.py).
+/// Past sessions of every module and their band reports (backend/app/core/history.py).
 
 class Criterion {
   Criterion.fromJson(Map<String, dynamic> json)
@@ -47,40 +44,42 @@ class StoredSession {
   StoredSession.fromJson(Map<String, dynamic> json)
     : id = json['id'],
       startedAt = DateTime.parse(json['started_at']).toLocal(),
+      module = json['module'] ?? 'speaking',
       mode = json['mode'],
       topic = json['topic'],
       voice = json['voice'],
       answerCount = json['answers'],
       report = json['report'] == null ? null : Report.fromJson(json['report']),
-      messages = [for (final m in json['messages'] ?? []) Message.fromStored(m)];
+      messageJson = List<Map<String, dynamic>>.from(json['messages'] ?? []);
 
-  final String id, mode, voice;
+  final String id, module, mode, voice;
   final String? topic;
   final DateTime startedAt;
   final int answerCount;
   Report? report;
-  final List<Message> messages; // empty in the session list
+  final List<Map<String, dynamic>> messageJson; // read by the module; empty in the session list
+
+  /// "Part 1 · Interview: Travel", given the mode's title.
+  String title(String modeTitle) => topic == null ? modeTitle : '$modeTitle: $topic';
 }
 
-Future<List<StoredSession>> fetchSessions() async => [
-  for (final s in await _json(http.get(apiUri('/api/sessions')))) StoredSession.fromJson(s),
+/// Newest first: every module's, or only [module]'s.
+Future<List<StoredSession>> fetchSessions({String? module}) async => [
+  for (final s in await getJson(
+    http.get(apiUri('/api/sessions').replace(queryParameters: module == null ? null : {'module': module})),
+  ))
+    StoredSession.fromJson(s),
 ];
 
 Future<StoredSession> fetchSession(String id) async =>
-    StoredSession.fromJson(await _json(http.get(apiUri('/api/sessions/$id'))));
+    StoredSession.fromJson(await getJson(http.get(apiUri('/api/sessions/$id'))));
 
 /// Writes the report if there is none yet (takes 10-30 s), or a new one with [again].
 Future<Report> writeReport(String id, {bool again = false}) async {
   final uri = apiUri('/api/sessions/$id/report').replace(queryParameters: again ? {'again': 'true'} : null);
-  return Report.fromJson(await _json(http.post(uri)));
+  return Report.fromJson(await getJson(http.post(uri)));
 }
 
-Future<void> deleteSession(String id) => _json(http.delete(apiUri('/api/sessions/$id')));
+Future<void> deleteSession(String id) => getJson(http.delete(apiUri('/api/sessions/$id')));
 
 Uri answerAudioUri(String id, int answer) => apiUri('/api/sessions/$id/answers/$answer.wav');
-
-Future<dynamic> _json(Future<http.Response> request) async {
-  final response = await request;
-  if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
-  return jsonDecode(utf8.decode(response.bodyBytes));
-}

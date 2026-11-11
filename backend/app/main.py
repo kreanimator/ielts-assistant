@@ -2,6 +2,7 @@
 
   /api/speaking/..., /ws/speaking   the Speaking module (see speaking/router.py)
   /api/sessions/...                 past sessions and reports, for every module (see core/history.py)
+  GET /api/dashboard                the home screen's bands and progress (see core/dashboard.py)
   GET /                             the Flutter app (after `make frontend`)
   GET /dev                          a plain developer test page (Speaking)
 
@@ -16,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from .core import history
+from .core import dashboard, history
 from .speaking.router import router as speaking
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
@@ -32,6 +33,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "DELETE"],
 )
 app.include_router(history.router)
+app.include_router(dashboard.router)
 app.include_router(speaking)
 
 

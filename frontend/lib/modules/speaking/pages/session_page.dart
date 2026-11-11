@@ -3,9 +3,10 @@ import 'dart:js_interop';
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
-import '../history.dart';
+import '../../../core/history.dart';
+import '../../../core/widgets/report_view.dart';
+import '../session.dart';
 import '../widgets/corrections_panel.dart';
-import '../widgets/report_view.dart';
 
 /// One past session: its band report, then every answer with feedback and its recording.
 class SessionPage extends StatefulWidget {
@@ -118,7 +119,7 @@ class _SessionPageState extends State<SessionPage> {
                     const SizedBox(height: 24),
                     Text('Your answers', style: theme.textTheme.titleLarge),
                     const SizedBox(height: 8),
-                    for (final (i, m) in session.messages.indexed)
+                    for (final (i, m) in [for (final j in session.messageJson) Message.fromStored(j)].indexed)
                       if (m.fromExaminer)
                         Padding(
                           padding: EdgeInsets.only(bottom: 8, top: i == 0 ? 0 : 4),
@@ -153,7 +154,7 @@ class _SessionPageState extends State<SessionPage> {
     );
   }
 
-  String _title(StoredSession s) => '${widget.modeTitle(s.mode)}${s.topic == null ? '' : ': ${s.topic}'}';
+  String _title(StoredSession s) => s.title(widget.modeTitle(s.mode));
 }
 
 class _Writing extends StatelessWidget {

@@ -19,6 +19,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     started_at TEXT NOT NULL,
+    module TEXT NOT NULL DEFAULT 'speaking',  -- the skill: speaking, writing, ...
     mode TEXT NOT NULL,
     topic TEXT,
     voice TEXT NOT NULL,
@@ -38,15 +39,25 @@ CREATE TABLE IF NOT EXISTS messages (
 """
 
 
+_ready = False  # the schema is created and up to date
+
+
 @contextmanager
 def connect():
     """A database connection that commits at the end of the block and then closes."""
+    global _ready
     config.DATA_DIR.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(config.DATA_DIR / "ielts.db")
     db.row_factory = sqlite3.Row
     try:
         db.execute("PRAGMA foreign_keys = ON")
-        db.executescript(SCHEMA)
+        if not _ready:
+            db.executescript(SCHEMA)
+            columns = {row["name"] for row in db.execute("PRAGMA table_info(sessions)")}
+            if "module" not in columns:  # a database from before the modules: all Speaking
+                db.execute("ALTER TABLE sessions ADD COLUMN module TEXT NOT NULL DEFAULT 'speaking'")
+                db.commit()
+            _ready = True
         with db:
             yield db
     finally:
@@ -57,12 +68,12 @@ def audio_path(session_id: str, answer: int) -> Path:
     return config.DATA_DIR / "sessions" / session_id / f"answer-{answer}.wav"
 
 
-def create_session(mode: str, topic: str | None, voice: str, model: str) -> str:
+def create_session(module: str, mode: str, topic: str | None, voice: str, model: str) -> str:
     session_id = datetime.now().strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:6]
     with connect() as db:
         db.execute(
-            "INSERT INTO sessions (id, started_at, mode, topic, voice, model) VALUES (?, ?, ?, ?, ?, ?)",
-            (session_id, datetime.now(timezone.utc).isoformat(), mode, topic, voice, model),
+            "INSERT INTO sessions (id, started_at, module, mode, topic, voice, model) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (session_id, datetime.now(timezone.utc).isoformat(), module, mode, topic, voice, model),
         )
     return session_id
 
@@ -105,11 +116,13 @@ def set_topic(session_id: str, topic: str):
         db.execute("UPDATE sessions SET topic = ? WHERE id = ?", (topic, session_id))
 
 
-def list_sessions() -> list[dict]:
+def list_sessions(module: str | None = None) -> list[dict]:
+    """Newest first; only one module's with `module`."""
     with connect() as db:
         rows = db.execute(
             """SELECT s.*, (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id AND m.role = 'candidate') AS answers
-               FROM sessions s ORDER BY s.started_at DESC"""
+               FROM sessions s WHERE ? IS NULL OR s.module = ? ORDER BY s.started_at DESC""",
+            (module, module),
         ).fetchall()
     return [_session(row) for row in rows]
 
@@ -149,6 +162,7 @@ def _session(row: sqlite3.Row) -> dict:
     return {
         "id": row["id"],
         "started_at": row["started_at"],
+        "module": row["module"],
         "mode": row["mode"],
         "topic": row["topic"],
         "voice": row["voice"],

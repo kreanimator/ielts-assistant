@@ -54,12 +54,17 @@ backend/app/
   writing/       (milestone 17 on) book import, assessor, report; routes: /api/writing/*
 frontend/lib/
   main.dart      the app
-  core/          what every module shares (the backend's address so far)
-  modules/speaking/
+  home/          the dashboard: a band per skill, the overall band, progress, recent sessions
+  core/          what every module shares: the backend's address, history, the report view,
+                 band charts, the history page
+  modules/       registry.dart (each skill's card, page, session and history pages)
+    speaking/
 ```
 
-History, the report view and the progress charts still live in the Speaking module;
-milestone 16 moves them to the core when the dashboard shows every module.
+Sessions carry their module. A module registers itself in core/modules.py with its training
+modes (for titles) and its report builder; `/api/dashboard` (core/dashboard.py) works out
+each skill's band (the average of the last 5 sessions with a band, IELTS rounding) and the
+overall band (the average of the skills with a band, marked partial until there are four).
 
 ## Modes
 
@@ -140,9 +145,10 @@ without any books.
    never committed), and the examiner asks eight of its questions word for word
 15. ✅ Renamed to IELTS Assistant and split into modules: a shared core and the Speaking
    module (its routes moved to /api/speaking/* and /ws/speaking), so other skills can be added
-16. Home screen: choose a module, and a dashboard with the estimated band per skill, an
-   overall band (IELTS rounding, marked as partial until all four skills exist) and progress;
-   sessions get a module, and history, reports and charts move to the core
+16. ✅ Home screen: a dashboard to choose a skill, with the estimated band per skill (the
+   average of the last 5 sessions with a band), an overall band (IELTS rounding, marked as
+   partial until all four skills have one), progress and recent sessions; sessions have a
+   module (older ones become Speaking), and history, reports and charts moved to the core
 17. Writing tests from your books: General Training Task 1 (letters) and Task 2 (essays),
    with the books' sample answers and their examiner bands, from the cached page texts
 18. Writing practice: Task 1 and Task 2 with a word counter, assessed on Task Achievement /

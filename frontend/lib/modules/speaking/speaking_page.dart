@@ -3,9 +3,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import 'api.dart';
-import 'pages/history_page.dart';
-import 'pages/session_page.dart';
 import 'session.dart';
+import 'speaking.dart';
 import 'widgets/corrections_panel.dart';
 import 'widgets/dialogue_panel.dart';
 import 'widgets/setup_panel.dart';
@@ -44,14 +43,12 @@ class _SpeakingPageState extends State<SpeakingPage> {
 
   String _modeTitle(String id) => _options?.modes.where((m) => m.id == id).firstOrNull?.title ?? id;
 
-  void _showReport(String id) => Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => SessionPage(id: id, modeTitle: _modeTitle),
-    ),
-  );
+  void _showReport(String id) => openSpeakingSession(context, id, _modeTitle);
 
-  void _showHistory() => Navigator.push(context, MaterialPageRoute(builder: (_) => HistoryPage(modeTitle: _modeTitle)));
+  void _showHistory() => openSpeakingHistory(context, _modeTitle);
+
+  /// Back to the dashboard (not during a session: leaving would cut it off).
+  void _home() => Navigator.popUntil(context, (route) => route.isFirst); // also closes the drawer on phones
 
   Future<void> _load() async {
     setState(() => _loadError = null);
@@ -72,7 +69,7 @@ class _SpeakingPageState extends State<SpeakingPage> {
         if (!options.modes.any((m) => m.id == _mode)) _mode = options.modes.first.id;
       });
     } catch (_) {
-      setState(() => _loadError = 'Cannot reach the backend at ${apiUri('/')}.\nStart it with `make run`.');
+      setState(() => _loadError = 'Cannot reach the backend at ${apiUri('/')}.\nStart it with `make start`.');
     }
   }
 
@@ -131,6 +128,7 @@ class _SpeakingPageState extends State<SpeakingPage> {
         onTest: (key) => setState(() => _test = key),
         enabled: !_session.active && _session.phase != Phase.ending,
         onHistory: _showHistory,
+        onHome: _home,
         onMode: (id) => setState(() => _mode = id),
         onVoice: (id) => setState(() => _voice = id),
         liveCorrections: _live,
@@ -160,7 +158,17 @@ class _SpeakingPageState extends State<SpeakingPage> {
           appBar: phone
               ? AppBar(
                   title: const Text('IELTS Speaking'),
-                  actions: [IconButton(tooltip: 'History', onPressed: _showHistory, icon: const Icon(Icons.history))],
+                  actions: [
+                    ListenableBuilder(
+                      listenable: _session,
+                      builder: (context, _) => IconButton(
+                        tooltip: 'Home',
+                        onPressed: _session.active ? null : _home,
+                        icon: const Icon(Icons.home_outlined),
+                      ),
+                    ),
+                    IconButton(tooltip: 'History', onPressed: _showHistory, icon: const Icon(Icons.history)),
+                  ],
                 )
               : null,
           drawer: phone ? Drawer(child: SafeArea(child: setup)) : null,
