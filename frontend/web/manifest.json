@@ -1,6 +1,6 @@
 {
-    "name": "ielts_speaking_assistant",
-    "short_name": "ielts_speaking_assistant",
+    "name": "ielts_assistant",
+    "short_name": "ielts_assistant",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

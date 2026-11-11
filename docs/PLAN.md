@@ -38,6 +38,29 @@ Flutter Web  ──WebSocket (audio chunks, events)──►  Python FastAPI bac
 - Whisper hides fillers ("um", "uh") and repetitions by default. We prompt it
   to keep them, use word timestamps, and measure pauses with the VAD.
 
+### Modules
+
+The app is split by IELTS skill. Each module has its own package, routes and screens,
+on top of a shared core:
+
+```
+backend/app/
+  main.py        builds the app and mounts each module's router
+  core/          settings, the LLM client, SQLite storage, the history API,
+                 reading your books' pages (text layer or OCR, cached)
+  speaking/      examiner, analyst, exam timing, STT/TTS/VAD, fluency, pronunciation,
+                 intonation, report, drills, topics, book import
+                 routes: /api/speaking/*, /ws/speaking
+  writing/       (milestone 17 on) book import, assessor, report; routes: /api/writing/*
+frontend/lib/
+  main.dart      the app
+  core/          what every module shares (the backend's address so far)
+  modules/speaking/
+```
+
+History, the report view and the progress charts still live in the Speaking module;
+milestone 16 moves them to the core when the dashboard shows every module.
+
 ## Modes
 
 | Mode | Behaviour |
@@ -115,3 +138,18 @@ without any books.
 14. ✅ By letter: choose or roll a letter, get a random topic card from
    eslconversationquestions.com (downloaded once with `make esl-topics` into data/private/,
    never committed), and the examiner asks eight of its questions word for word
+15. ✅ Renamed to IELTS Assistant and split into modules: a shared core and the Speaking
+   module (its routes moved to /api/speaking/* and /ws/speaking), so other skills can be added
+16. Home screen: choose a module, and a dashboard with the estimated band per skill, an
+   overall band (IELTS rounding, marked as partial until all four skills exist) and progress;
+   sessions get a module, and history, reports and charts move to the core
+17. Writing tests from your books: General Training Task 1 (letters) and Task 2 (essays),
+   with the books' sample answers and their examiner bands, from the cached page texts
+18. Writing practice: Task 1 and Task 2 with a word counter, assessed on Task Achievement /
+   Task Response, Coherence and Cohesion, Lexical Resource and Grammar (evidence quoted,
+   word count and length penalty measured), with corrections and a writing band
+   (Task 2 counts twice)
+19. Full Writing test: both tasks in 60 minutes with strict server-side timing, and the
+   writing bands checked against the books' sample answers (`make calibrate-writing`)
+20. Later: Listening and Reading from your books, scored with the answer keys and the
+   official raw-score-to-band tables

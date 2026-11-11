@@ -1,4 +1,4 @@
-Required Notice: Copyright (c) 2026 kreanimator (https://github.com/kreanimator/ielts-speaking-assistant)
+Required Notice: Copyright (c) 2026 kreanimator (https://github.com/kreanimator/ielts-assistant)
 
 # PolyForm Noncommercial License 1.0.0
 

@@ -56,8 +56,8 @@ def app_scores(utterances: list[str]) -> dict[str, float]:
     cache = json.loads(CACHE.read_text()) if CACHE.exists() else {}
     todo = [u for u in utterances if u not in cache]
     if todo:
-        from app import config
-        from app.pronunciation import PronunciationScorer
+        from app.core import config
+        from app.speaking.pronunciation import PronunciationScorer
 
         scorer = PronunciationScorer(config.DEVICE)
         texts = {}
@@ -122,7 +122,7 @@ def main():
           f"mean absolute {np.mean(np.abs(sp_pred - sp_true)):.2f}, correlation {np.corrcoef(sp_pred, sp_true)[0, 1]:.2f}")
 
     # The app's mapping, old and new, per test speaker.
-    from app import report
+    from app.speaking import report
     for name, band in [("app mapping (report.py)", report.pronunciation_band)]:
         got = np.array([band(float(np.mean([scores[u] for u in us]))) for us in speakers.values()])
         print(f"{name}, per speaker: mean difference {np.mean(got - sp_true):+.2f}, "

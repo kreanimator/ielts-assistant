@@ -18,11 +18,11 @@ import time
 
 import httpx
 
-from . import config
+from ..core import config
 
 SITE = "https://www.eslconversationquestions.com"
 INDEX = f"{SITE}/english-conversation-questions/topics/"
-AGENT = "Mozilla/5.0 (X11; Linux x86_64) ielts-speaking-assistant (personal practice)"
+AGENT = "Mozilla/5.0 (X11; Linux x86_64) ielts-assistant (personal practice)"
 LEVELS = ["A1-A2", "A2", "B1", "B2", "C1"]  # the site's sections, easiest first
 LEVEL_NAMES = {"A1-A2": "Beginner", "A2": "Elementary", "B1": "Intermediate", "B2": "Upper-intermediate",
                "C1": "Advanced"}

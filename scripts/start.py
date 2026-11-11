@@ -95,11 +95,11 @@ def main():
             print("Starting the LLM server (the first time it downloads the model, 3 to 7 GB) ...")
             llm = launch("llm", LOGS / "llm.log")
             wait_for(LLM_HEALTH, llm, LOGS / "llm.log", "LLM server", 60)
-        if answers(f"{APP}/api/topics"):
+        if answers(f"{APP}/api/speaking/topics"):
             raise SystemExit("Something already runs on port 8000. Stop it, or open " + APP)
         print("Starting the backend (loading the speech models takes up to a minute) ...")
         backend = launch("run", LOGS / "backend.log")
-        wait_for(f"{APP}/api/topics", backend, LOGS / "backend.log", "backend", 15)
+        wait_for(f"{APP}/api/speaking/topics", backend, LOGS / "backend.log", "backend", 15)
         print(f"\nReady: {APP}  (Chrome or Edge; allow the microphone). Press Ctrl+C to stop.")
         webbrowser.open(APP)
         while backend.poll() is None and (llm is None or llm.poll() is None):

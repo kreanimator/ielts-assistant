@@ -1,18 +1,25 @@
-# IELTS Speaking Assistant
+# IELTS Assistant
 
-A local, private practice partner for the IELTS Speaking test. You talk into the
-microphone, an AI examiner talks back, a second agent checks your answers live, and
-after each session you get a report with an estimated band for each IELTS criterion.
+A local, private practice partner for the IELTS test, built from separate modules, one
+per skill:
+
+- **Speaking** (works now): you talk into the microphone, an AI examiner talks back, a
+  second agent checks your answers live, and after each session you get a report with
+  an estimated band for each IELTS criterion.
+- **Writing** (next): General Training Task 1 and Task 2 from your own books, timed like
+  the real test, assessed on the four writing criteria with an overall band.
+- **Listening and Reading** (later).
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
-> **Status:** milestones 1–14 work: a one-command install on Linux and Apple Silicon Macs, voice conversation with an AI examiner in the
+> **Status:** milestones 1–15 work: a one-command install on Linux and Apple Silicon Macs, voice conversation with an AI examiner in the
 > web app, the full exam with real timing, practice of each part on its own
 > (including the Part 2 cue card with a preparation minute), topic cards by letter,
 > drills for weak sounds and structures, corrections, fluency numbers and a
 > pronunciation and intonation check on each answer, a band report at the end of each session
 > (checked against human examiners' scores), a history with your recordings and
-> progress charts, and real test questions imported from your own books. See [docs/PLAN.md](docs/PLAN.md).
+> progress charts, and real test questions imported from your own books. Milestone 15 split
+> the app into modules, so Writing can be added next. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Run it
 
@@ -33,8 +40,8 @@ Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
    - NVIDIA on Linux: the NVIDIA driver (570 or newer is best). Check with `nvidia-smi`.
 2. **Download the project:**
    ```bash
-   git clone https://github.com/kreanimator/ielts-speaking-assistant.git
-   cd ielts-speaking-assistant
+   git clone https://github.com/kreanimator/ielts-assistant.git
+   cd ielts-assistant
    ```
 3. **Install it** (once; about 10 GB to download, so 15 minutes or more depending on your connection):
    ```bash
@@ -139,7 +146,7 @@ Corrections stay hidden until the end, and then the band report opens. Without a
 book test, the cue card is one of the app's own cards, or one written for the topic
 you type. **Part 2 · Long turn** practises the long turn on its own, and there you
 may start before the minute is over. The times can be changed for practice; see
-`PART1_SECONDS` and the settings below it in [backend/app/config.py](backend/app/config.py).
+`PART1_SECONDS` and the settings below it in [backend/app/speaking/config.py](backend/app/speaking/config.py).
 
 ### By letter
 
@@ -163,7 +170,7 @@ In the other modes, the topic field suggests topics as you type: the app's own A
 list and the topics of your imported tests.
 
 Settings such as the voice or the end-of-turn pause are environment variables;
-see [backend/app/config.py](backend/app/config.py).
+see [backend/app/speaking/config.py](backend/app/speaking/config.py).
 
 ### Drills
 

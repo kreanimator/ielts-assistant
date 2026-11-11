@@ -21,7 +21,6 @@ import argparse
 import asyncio
 import json
 import random
-import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -29,9 +28,9 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
-from app import fluency, report  # noqa: E402
-from app.analyst import analyse  # noqa: E402
-from app.stt import Word  # noqa: E402
+from app.speaking import fluency, report  # noqa: E402
+from app.speaking.analyst import analyse  # noqa: E402
+from app.speaking.stt import Word  # noqa: E402
 
 CORPUS = ROOT / "data" / "private" / "calibration" / "speak-and-improve" / "sandi-corpus-2025" / "reference-materials"
 OUT = ROOT / "data" / "private" / "calibration"

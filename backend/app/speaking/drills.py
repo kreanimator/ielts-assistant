@@ -7,7 +7,7 @@
 
 Your past sessions suggest which sounds to drill: the ones you got wrong most often.
 """
-from . import llm, storage
+from ..core import llm, storage
 
 SENTENCES = 6  # per sound drill
 CANDIDATES = 10  # sentences the LLM writes; the richest in the sound are kept

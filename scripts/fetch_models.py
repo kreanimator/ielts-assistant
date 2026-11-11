@@ -9,21 +9,21 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "backend"))
 
-from app import config  # noqa: E402
+from app.speaking import config  # noqa: E402
 
 
 def main():
     print(f"Device: {config.DEVICE} (Whisper: {config.WHISPER_MODEL} on {config.WHISPER_DEVICE})", flush=True)
-    from app.stt import Transcriber
+    from app.speaking.stt import Transcriber
     Transcriber(config.WHISPER_MODEL, config.WHISPER_DEVICE)
     print("  Whisper ready", flush=True)
-    from app.tts import Speaker
+    from app.speaking.tts import Speaker
     speaker = Speaker(config.DEVICE)
     for voice in config.VOICES:
         speaker.voice(voice)
     speaker.speak("Hello.", config.DEFAULT_VOICE)
     print("  Kokoro and its voices ready", flush=True)
-    from app.pronunciation import PronunciationScorer
+    from app.speaking.pronunciation import PronunciationScorer
     PronunciationScorer(config.DEVICE)
     print("  Pronunciation model ready", flush=True)
     from silero_vad import load_silero_vad

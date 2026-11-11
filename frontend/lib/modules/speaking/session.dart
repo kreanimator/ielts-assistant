@@ -112,7 +112,7 @@ class Countdown {
   }
 }
 
-/// One practice session: talks to the backend over /ws (protocol in backend/app/main.py).
+/// One practice session: talks to the backend over /ws/speaking (protocol in backend/app/speaking/router.py).
 class Session extends ChangeNotifier {
   Phase phase = Phase.idle;
   final messages = <Message>[];

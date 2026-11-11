@@ -2,16 +2,13 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-/// The backend's address. Empty means the page's own origin (the backend serves
-/// the built app). For `flutter run`, pass --dart-define=BACKEND=http://127.0.0.1:8000
-const _backend = String.fromEnvironment('BACKEND');
+import '../../core/api.dart';
 
-Uri get _base => _backend.isEmpty ? Uri.base : Uri.parse(_backend);
+export '../../core/api.dart';
 
-Uri apiUri(String path) => Uri(scheme: _base.scheme, host: _base.host, port: _base.port, path: path);
+/// The Speaking module's API (backend/app/speaking/router.py).
 
-Uri get sessionUri =>
-    Uri(scheme: _base.scheme == 'https' ? 'wss' : 'ws', host: _base.host, port: _base.port, path: '/ws');
+Uri get sessionUri => wsUri('/ws/speaking');
 
 class Voice {
   Voice.fromJson(Map<String, dynamic> json)
@@ -43,7 +40,7 @@ class Options {
 }
 
 Future<Options> fetchOptions() async {
-  final response = await http.get(apiUri('/api/options'));
+  final response = await http.get(apiUri('/api/speaking/options'));
   if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
   return Options.fromJson(jsonDecode(response.body));
 }
@@ -74,7 +71,7 @@ class BookTest {
 
 /// All imported tests, book by book (empty until you run `make books`).
 Future<List<BookTest>> fetchBookTests() async {
-  final response = await http.get(apiUri('/api/books'));
+  final response = await http.get(apiUri('/api/speaking/books'));
   if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
   return [
     for (final book in jsonDecode(utf8.decode(response.bodyBytes)))
@@ -90,7 +87,7 @@ class Topic {
 }
 
 Future<List<Topic>> fetchTopics() async {
-  final response = await http.get(apiUri('/api/topics'));
+  final response = await http.get(apiUri('/api/speaking/topics'));
   if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
   return [for (final t in jsonDecode(utf8.decode(response.bodyBytes))) Topic.fromJson(t)];
 }
@@ -111,7 +108,7 @@ class Drill {
 
 /// All drills, the ones your past sessions suggest first.
 Future<List<Drill>> fetchDrills() async {
-  final response = await http.get(apiUri('/api/drills'));
+  final response = await http.get(apiUri('/api/speaking/drills'));
   if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
   final json = jsonDecode(utf8.decode(response.bodyBytes));
   final reasons = {for (final s in json['suggested']) s['id'] as String: s['reason'] as String};
@@ -119,7 +116,7 @@ Future<List<Drill>> fetchDrills() async {
   return [...drills.where((d) => d.reason != null), ...drills.where((d) => d.reason == null)];
 }
 
-/// A topic card from eslconversationquestions.com, for the "By letter" mode (see backend/app/esl.py).
+/// A topic card from eslconversationquestions.com, for the "By letter" mode (see backend/app/speaking/esl.py).
 class EslTopic {
   EslTopic.fromJson(Map<String, dynamic> json)
     : slug = json['slug'],
@@ -134,7 +131,7 @@ class EslTopic {
 
 /// Empty until you run `make esl-topics`.
 Future<List<EslTopic>> fetchEslTopics() async {
-  final response = await http.get(apiUri('/api/esl'));
+  final response = await http.get(apiUri('/api/speaking/esl'));
   if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
   return [for (final t in jsonDecode(utf8.decode(response.bodyBytes))) EslTopic.fromJson(t)];
 }

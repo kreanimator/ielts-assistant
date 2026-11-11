@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'api.dart';
 import 'session.dart';
 
-/// Past sessions and their reports (backend/app/history.py).
+/// Past sessions and their reports (backend/app/core/history.py).
 
 class Criterion {
   Criterion.fromJson(Map<String, dynamic> json)
