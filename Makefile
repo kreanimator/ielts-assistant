@@ -87,9 +87,13 @@ llm: models/$(LLM_FILE) $(LLAMA_DIR)/llama-server
 # Build the Flutter web app; the backend serves it at http://127.0.0.1:8000. Without
 # Flutter, the app built from main is downloaded from the project's releases instead.
 # (Flutter's output goes through cat: it can exit with 255 when its output is a file.)
+# A failed build is tried once more after `flutter clean`: Flutter's cache can keep old
+# names, for example after the app was renamed.
+FLUTTER_BUILD = flutter build web --release --no-web-resources-cdn --pwa-strategy=none 2>&1 | cat
 frontend:
 	@if command -v flutter >/dev/null; then \
-		bash -o pipefail -c 'cd frontend && flutter build web --release --no-web-resources-cdn --pwa-strategy=none 2>&1 | cat'; \
+		bash -o pipefail -c 'cd frontend && { $(FLUTTER_BUILD) || { echo "Build failed: clearing the Flutter cache and trying again"; \
+			flutter clean >/dev/null && $(FLUTTER_BUILD); }; }'; \
 	else \
 		echo "Flutter not found: downloading the built web app"; \
 		rm -rf frontend/build/web && mkdir -p frontend/build/web && \
