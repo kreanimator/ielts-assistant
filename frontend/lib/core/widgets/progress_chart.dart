@@ -3,21 +3,18 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../history.dart';
+import 'band.dart';
+
+/// A module's report criteria, for its progress charts: 'overall' and the criterion ids.
+typedef ChartSpec = ({String id, String name});
 
 /// How your bands change over sessions: one small chart per criterion, on the same
 /// band scale, so the lines never cross each other. Hover or tap for a session's band.
 class ProgressCharts extends StatelessWidget {
-  const ProgressCharts({super.key, required this.sessions});
+  const ProgressCharts({super.key, required this.sessions, required this.charts});
 
   final List<StoredSession> sessions; // any order; only those with band estimates are drawn
-
-  static const charts = [
-    (id: 'overall', name: 'Overall'),
-    (id: 'fluency_coherence', name: 'Fluency and Coherence'),
-    (id: 'lexical_resource', name: 'Lexical Resource'),
-    (id: 'grammar', name: 'Grammar'),
-    (id: 'pronunciation', name: 'Pronunciation'),
-  ];
+  final List<ChartSpec> charts;
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +39,7 @@ class ProgressCharts extends StatelessWidget {
             for (final c in charts)
               SizedBox(
                 width: width,
-                child: _BandChart(
+                child: BandChart(
                   title: c.name,
                   points: [
                     for (final s in scored)
@@ -58,19 +55,21 @@ class ProgressCharts extends StatelessWidget {
   }
 }
 
-typedef _Point = ({DateTime date, double band});
+typedef BandPoint = ({DateTime date, double band});
 
-class _BandChart extends StatefulWidget {
-  const _BandChart({required this.title, required this.points});
+/// One band over time, oldest first. Hover or tap for a point's date and band.
+class BandChart extends StatefulWidget {
+  const BandChart({super.key, required this.title, required this.points, this.empty = 'No estimate yet'});
 
   final String title;
-  final List<_Point> points;
+  final List<BandPoint> points;
+  final String empty; // shown instead of the latest band when there are no points
 
   @override
-  State<_BandChart> createState() => _BandChartState();
+  State<BandChart> createState() => _BandChartState();
 }
 
-class _BandChartState extends State<_BandChart> {
+class _BandChartState extends State<BandChart> {
   int? _hovered;
 
   void _pick(Offset position, double width) {
@@ -98,10 +97,10 @@ class _BandChartState extends State<_BandChart> {
             Text(widget.title, style: theme.textTheme.labelLarge),
             Text(
               hovered != null
-                  ? '${_date(hovered.date)}: band ${_band(hovered.band)}'
+                  ? '${_date(hovered.date)}: band ${formatBand(hovered.band)}'
                   : latest == null
-                  ? 'No estimate yet'
-                  : 'Latest: band ${_band(latest)}',
+                  ? widget.empty
+                  : 'Latest: band ${formatBand(latest)}',
               style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 6),
@@ -132,8 +131,6 @@ class _BandChartState extends State<_BandChart> {
   }
 }
 
-String _band(double b) => b == b.roundToDouble() ? b.toStringAsFixed(0) : b.toStringAsFixed(1);
-
 String _date(DateTime d) => '${d.day}.${d.month.toString().padLeft(2, '0')}';
 
 class _Painter extends CustomPainter {
@@ -148,7 +145,7 @@ class _Painter extends CustomPainter {
 
   static const left = 22.0, right = 8.0, top = 6.0, bottom = 6.0;
 
-  final List<_Point> points;
+  final List<BandPoint> points;
   final int? hovered;
   final Color line, surface, grid;
   final TextStyle text;
@@ -169,7 +166,7 @@ class _Painter extends CustomPainter {
       canvas.drawLine(Offset(left, y(band)), Offset(size.width - right, y(band)), gridPaint);
       if ((high - band) % 2 == 0) {
         final label = TextPainter(
-          text: TextSpan(text: _band(band), style: text),
+          text: TextSpan(text: formatBand(band), style: text),
           textDirection: TextDirection.ltr,
         )..layout();
         label.paint(canvas, Offset(0, y(band) - label.height / 2));

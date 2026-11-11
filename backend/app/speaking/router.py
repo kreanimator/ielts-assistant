@@ -59,8 +59,8 @@ import time
 import numpy as np
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from ..core import llm, storage
-from . import books, config, drills, esl, exam, fluency, prosody, topics
+from ..core import llm, modules, storage
+from . import books, config, drills, esl, exam, fluency, prosody, report, topics
 from .analyst import analyse
 from .examiner import MODES, Conversation
 from .pronunciation import PronunciationScorer
@@ -71,6 +71,7 @@ from .vad import SAMPLE_RATE, TurnDetector
 log = logging.getLogger("ielts.speaking")
 
 router = APIRouter()
+modules.register("speaking", {k: m["title"] for k, m in MODES.items()}, report.build)
 
 transcriber = Transcriber(config.WHISPER_MODEL, config.WHISPER_DEVICE)
 transcribe_lock = asyncio.Lock()  # one Whisper call at a time
@@ -155,7 +156,7 @@ async def session(ws: WebSocket):
             topic = f"{test['book']}, Test {test['test']}"
         if card:
             topic = card["name"]
-        session_id = storage.create_session(mode, topic, voice, await llm.model_name())
+        session_id = storage.create_session("speaking", mode, topic, voice, await llm.model_name())
         talk = Talk(ws, session_id, voice)
         await ws.send_json({"type": "ready", "session": session_id})
         try:

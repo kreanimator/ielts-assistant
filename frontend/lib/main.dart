@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'modules/speaking/speaking_page.dart';
+import 'home/dashboard_page.dart';
 
 void main() => runApp(const App());
 
@@ -19,6 +19,6 @@ class App extends StatelessWidget {
     debugShowCheckedModeBanner: false,
     theme: _theme(Brightness.light),
     darkTheme: _theme(Brightness.dark),
-    home: const SpeakingPage(), // the only module so far
+    home: const DashboardPage(),
   );
 }

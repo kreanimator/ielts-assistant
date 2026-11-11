@@ -180,7 +180,7 @@ class Session extends ChangeNotifier {
     }).toJS;
     ws.onmessage = ((web.MessageEvent event) => _receive(event.data)).toJS;
     ws.onclose = ((web.CloseEvent _) {
-      if (_ws == ws) _fail('Lost the connection to the backend. Is `make run` still running?');
+      if (_ws == ws) _fail('Lost the connection to the backend. Is `make start` still running?');
     }).toJS;
   }
 

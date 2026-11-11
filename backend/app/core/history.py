@@ -1,28 +1,28 @@
 """Past sessions: list, details, reports, recordings, delete.
 
-  GET    /api/sessions                       all sessions, newest first (with reports, without messages)
+  GET    /api/sessions[?module=speaking]     all sessions, or one module's, newest first (with reports, without messages)
   GET    /api/sessions/{id}                  one session with every message, its feedback and numbers
   POST   /api/sessions/{id}/report           writes the band report if there is none yet (or ?again=true), returns it
   GET    /api/sessions/{id}/answers/{n}.wav  your recorded answer
   DELETE /api/sessions/{id}                  removes the session and its recordings
 
-All sessions are Speaking sessions so far, so the report is Speaking's.
+Each session belongs to a module (speaking, writing, ...), which writes its report (see modules.py).
 """
 import asyncio
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from ..speaking import report
 from . import storage
+from .modules import MODULES
 
 router = APIRouter(prefix="/api/sessions")
 report_lock = asyncio.Lock()  # one report at a time: they share the LLM
 
 
 @router.get("")
-def list_sessions():
-    return storage.list_sessions()
+def list_sessions(module: str | None = None):
+    return storage.list_sessions(module)
 
 
 @router.get("/{session_id}")
@@ -36,7 +36,10 @@ async def write_report(session_id: str, again: bool = False):
     async with report_lock:
         session = _session_or_404(session_id)
         if session["report"] is None or again:
-            session["report"] = await report.build(session)
+            builder = MODULES[session["module"]].report if session["module"] in MODULES else None
+            if builder is None:
+                raise HTTPException(400, f"No reports for {session['module']} sessions")
+            session["report"] = await builder(session)
             storage.set_report(session_id, session["report"])
     return session["report"]
 

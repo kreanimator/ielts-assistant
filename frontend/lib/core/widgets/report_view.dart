@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../history.dart';
+import 'band.dart';
 
 /// The band report: overall band, each criterion with its evidence, strengths and priorities.
 class ReportView extends StatelessWidget {
@@ -23,7 +24,7 @@ class ReportView extends StatelessWidget {
       children: [
         Row(
           children: [
-            _BandBadge(band: report.overall!, large: true),
+            BandBadge(band: report.overall!, large: true),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -73,7 +74,7 @@ class _CriterionCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _BandBadge(band: criterion.band),
+            BandBadge(band: criterion.band),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -97,32 +98,6 @@ class _CriterionCard extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BandBadge extends StatelessWidget {
-  const _BandBadge({required this.band, this.large = false});
-
-  final double band;
-  final bool large;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final text = band == band.roundToDouble() ? band.toStringAsFixed(0) : band.toStringAsFixed(1);
-    return Container(
-      width: large ? 72 : 48,
-      height: large ? 72 : 48,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(color: colors.primaryContainer, borderRadius: BorderRadius.circular(large ? 20 : 14)),
-      child: Text(
-        text,
-        style: (large ? Theme.of(context).textTheme.headlineMedium : Theme.of(context).textTheme.titleLarge)?.copyWith(
-          color: colors.onPrimaryContainer,
-          fontWeight: FontWeight.w700,
         ),
       ),
     );

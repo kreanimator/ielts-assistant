@@ -1,14 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../history.dart';
+import '../widgets/band.dart';
 import '../widgets/progress_chart.dart';
-import 'session_page.dart';
 
-/// Your progress over time and every past session.
+/// One module's progress over time and its past sessions.
 class HistoryPage extends StatefulWidget {
-  const HistoryPage({super.key, required this.modeTitle});
+  const HistoryPage({
+    super.key,
+    required this.module,
+    required this.title,
+    required this.charts,
+    required this.modeTitle,
+    required this.openSession,
+  });
 
+  final String module; // the module's id, e.g. 'speaking'
+  final String title; // e.g. 'Speaking history'
+  final List<ChartSpec> charts;
   final String Function(String mode) modeTitle;
+  final Future<void> Function(BuildContext context, String id) openSession;
 
   @override
   State<HistoryPage> createState() => _HistoryPageState();
@@ -26,7 +37,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
   Future<void> _load() async {
     try {
-      final sessions = await fetchSessions();
+      final sessions = await fetchSessions(module: widget.module);
       setState(() => _sessions = sessions);
     } catch (e) {
       setState(() => _error = 'Could not load your sessions ($e).');
@@ -34,12 +45,7 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Future<void> _open(StoredSession s) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SessionPage(id: s.id, modeTitle: widget.modeTitle),
-      ),
-    );
+    await widget.openSession(context, s.id);
     _load(); // a report may have been written, or the session deleted
   }
 
@@ -48,7 +54,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final theme = Theme.of(context);
     final sessions = _sessions;
     return Scaffold(
-      appBar: AppBar(title: const Text('History')),
+      appBar: AppBar(title: Text(widget.title)),
       body: sessions == null
           ? Center(child: _error == null ? const CircularProgressIndicator() : Text(_error!))
           : Center(
@@ -59,34 +65,49 @@ class _HistoryPageState extends State<HistoryPage> {
                   children: [
                     Text('Progress', style: theme.textTheme.titleLarge),
                     const SizedBox(height: 8),
-                    ProgressCharts(sessions: sessions),
+                    ProgressCharts(sessions: sessions, charts: widget.charts),
                     const SizedBox(height: 24),
                     Text('Sessions', style: theme.textTheme.titleLarge),
                     const SizedBox(height: 8),
                     if (sessions.isEmpty) const Text('No sessions yet. Practise once and it appears here.'),
                     for (final s in sessions)
-                      Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          title: Text('${widget.modeTitle(s.mode)}${s.topic == null ? '' : ': ${s.topic}'}'),
-                          subtitle: Text(
-                            '${_when(s.startedAt)} · ${s.answerCount} answer${s.answerCount == 1 ? '' : 's'}',
-                          ),
-                          trailing: _BandText(s.report),
-                          onTap: () => _open(s),
-                        ),
-                      ),
+                      SessionTile(session: s, title: s.title(widget.modeTitle(s.mode)), onTap: () => _open(s)),
                   ],
                 ),
               ),
             ),
     );
   }
+}
 
-  String _when(DateTime d) {
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
+/// A past session in a list: what it was, when, and its band.
+class SessionTile extends StatelessWidget {
+  const SessionTile({super.key, required this.session, required this.title, required this.onTap, this.leading});
+
+  final StoredSession session;
+  final String title;
+  final VoidCallback onTap;
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = session;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: leading,
+        title: Text(title),
+        subtitle: Text('${formatWhen(s.startedAt)} · ${s.answerCount} answer${s.answerCount == 1 ? '' : 's'}'),
+        trailing: _BandText(s.report),
+        onTap: onTap,
+      ),
+    );
   }
+}
+
+String formatWhen(DateTime d) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
 }
 
 class _BandText extends StatelessWidget {
@@ -99,16 +120,13 @@ class _BandText extends StatelessWidget {
     final theme = Theme.of(context);
     final overall = report?.overall;
     if (report == null) return Text('No report yet', style: theme.textTheme.bodySmall);
-    if (overall == null) return Text('Too short', style: theme.textTheme.bodySmall);
+    if (overall == null) return Text('No band', style: theme.textTheme.bodySmall);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text('Band', style: theme.textTheme.labelSmall),
-        Text(
-          overall == overall.roundToDouble() ? overall.toStringAsFixed(0) : overall.toStringAsFixed(1),
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-        ),
+        Text(formatBand(overall), style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
       ],
     );
   }

@@ -12,14 +12,29 @@ per skill:
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
-> **Status:** milestones 1–15 work: a one-command install on Linux and Apple Silicon Macs, voice conversation with an AI examiner in the
+> **Status:** milestones 1–16 work: a one-command install on Linux and Apple Silicon Macs, voice conversation with an AI examiner in the
 > web app, the full exam with real timing, practice of each part on its own
 > (including the Part 2 cue card with a preparation minute), topic cards by letter,
 > drills for weak sounds and structures, corrections, fluency numbers and a
 > pronunciation and intonation check on each answer, a band report at the end of each session
 > (checked against human examiners' scores), a history with your recordings and
-> progress charts, and real test questions imported from your own books. Milestone 15 split
-> the app into modules, so Writing can be added next. See [docs/PLAN.md](docs/PLAN.md).
+> progress charts, and real test questions imported from your own books. The app is split
+> into modules, one per skill, and opens on a dashboard with your estimated band per skill,
+> an overall band and your progress. Writing comes next. See [docs/PLAN.md](docs/PLAN.md).
+
+## The dashboard
+
+The app opens on a dashboard:
+
+- **Estimated overall band:** like the real test, the average of the skills' bands, rounded
+  to the nearest half band (.25 and .75 round up). Until every skill can be practised it
+  says how many skills it comes from, for example "From 1 of 4 skills (Speaking)".
+- **A card per skill:** its band (the average of your last 5 sessions with a band estimate;
+  drills and short sessions have none), how often you practised, and **Practise** and
+  **History**. Skills that are not in the app yet say "Coming soon".
+- **Progress:** each skill's overall band, session by session, and your recent sessions.
+
+These are practice estimates, not official IELTS scores.
 
 ## Run it
 
@@ -57,9 +72,10 @@ Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
    ```
    The first start takes a minute or two while the models load; then the app opens at
    http://127.0.0.1:8000 and the terminal says "Ready".
-5. **Practise:** allow the microphone when the browser asks, choose a training mode on
-   the left (for example **Part 1 · Interview**) and press **Start**. Speak after the
-   examiner has finished; a short pause ends your answer.
+5. **Practise:** the app opens on the dashboard. Press **Practise** on the Speaking card,
+   allow the microphone when the browser asks, choose a training mode on the left (for
+   example **Part 1 · Interview**) and press **Start**. Speak after the examiner has
+   finished; a short pause ends your answer. **All skills** takes you back to the dashboard.
 6. **Stop it:** press **Ctrl+C** in the terminal. This stops both servers. Your sessions
    are kept in `data/` for next time.
 
