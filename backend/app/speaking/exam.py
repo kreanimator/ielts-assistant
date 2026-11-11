@@ -13,7 +13,8 @@ The examiner's fixed lines below are our own wording, not the official examiner 
 import random
 import time
 
-from . import config, drills, esl, llm
+from ..core import llm
+from . import config, drills
 from .examiner import Conversation
 
 PART2_INTRO = ("Now I'm going to give you a topic, and I'd like you to talk about it for one to two "

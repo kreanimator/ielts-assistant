@@ -1,3 +1,3 @@
-# ielts_speaking_assistant
+# ielts_assistant
 
 A new Flutter project.

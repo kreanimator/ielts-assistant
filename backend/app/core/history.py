@@ -5,13 +5,16 @@
   POST   /api/sessions/{id}/report           writes the band report if there is none yet (or ?again=true), returns it
   GET    /api/sessions/{id}/answers/{n}.wav  your recorded answer
   DELETE /api/sessions/{id}                  removes the session and its recordings
+
+All sessions are Speaking sessions so far, so the report is Speaking's.
 """
 import asyncio
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from . import report, storage
+from ..speaking import report
+from . import storage
 
 router = APIRouter(prefix="/api/sessions")
 report_lock = asyncio.Lock()  # one report at a time: they share the LLM

@@ -5,7 +5,7 @@ PYTHON = $(VENV)/bin/python
 LLM ?= 9B
 LLM_FILE ?= Qwen3.5-$(LLM)-Q5_K_M.gguf
 LLM_REPO ?= unsloth/Qwen3.5-$(LLM)-GGUF
-REPO_URL = https://github.com/kreanimator/ielts-speaking-assistant
+REPO_URL = https://github.com/kreanimator/ielts-assistant
 OS := $(shell uname -s)
 ARCH := $(shell uname -m)
 
@@ -40,7 +40,7 @@ install: check-platform setup models app-models frontend $(if $(filter 1,$(ESL))
 install-esl:
 	@if [ -s data/private/esl/topics.json ]; then echo "Topic cards: already downloaded (make esl-topics updates them)"; \
 	else echo "Downloading the topic cards for the By letter mode (about 2.5 minutes) ..."; \
-		PYTHONPATH=backend $(PYTHON) -m app.esl || \
+		PYTHONPATH=backend $(PYTHON) -m app.speaking.esl || \
 		echo "Warning: could not download the topic cards. Try again later with: make esl-topics"; fi
 
 # Start the LLM server and the backend, and open the app in the browser. Ctrl+C stops both.
@@ -87,9 +87,13 @@ llm: models/$(LLM_FILE) $(LLAMA_DIR)/llama-server
 # Build the Flutter web app; the backend serves it at http://127.0.0.1:8000. Without
 # Flutter, the app built from main is downloaded from the project's releases instead.
 # (Flutter's output goes through cat: it can exit with 255 when its output is a file.)
+# A failed build is tried once more after `flutter clean`: Flutter's cache can keep old
+# names, for example after the app was renamed.
+FLUTTER_BUILD = flutter build web --release --no-web-resources-cdn --pwa-strategy=none 2>&1 | cat
 frontend:
 	@if command -v flutter >/dev/null; then \
-		bash -o pipefail -c 'cd frontend && flutter build web --release --no-web-resources-cdn --pwa-strategy=none 2>&1 | cat'; \
+		bash -o pipefail -c 'cd frontend && { $(FLUTTER_BUILD) || { echo "Build failed: clearing the Flutter cache and trying again"; \
+			flutter clean >/dev/null && $(FLUTTER_BUILD); }; }'; \
 	else \
 		echo "Flutter not found: downloading the built web app"; \
 		rm -rf frontend/build/web && mkdir -p frontend/build/web && \
@@ -109,13 +113,13 @@ run:
 #   make books BOOKS='~/Books/*.pdf'      (escape spaces in names: BOOKS='~/My\ Books/*.pdf')
 # They are saved in data/private/books/ (git-ignored). Never commit them.
 books:
-	PYTHONPATH=backend $(PYTHON) -m app.books $(BOOKS)
+	PYTHONPATH=backend $(PYTHON) -m app.speaking.books $(BOOKS)
 
 # Download the topic cards of eslconversationquestions.com for the "By letter" mode (make
 # install does this once; this also fetches topics added to the site since). For your own
 # practice only: they are saved in data/private/esl/.
 esl-topics:
-	PYTHONPATH=backend $(PYTHON) -m app.esl
+	PYTHONPATH=backend $(PYTHON) -m app.speaking.esl
 
 # Check the Pronunciation band against experts' scores (speechocean762, CC BY 4.0, about 500 MB).
 CALIBRATION = data/private/calibration

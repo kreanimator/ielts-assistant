@@ -1,5 +1,5 @@
-name: ielts_speaking_assistant
-description: "IELTS Speaking Assistant web app."
+name: ielts_assistant
+description: "IELTS Assistant web app."
 publish_to: 'none'
 version: 0.1.0
 

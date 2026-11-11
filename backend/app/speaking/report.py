@@ -16,7 +16,8 @@ import re
 
 import numpy as np
 
-from . import llm, prosody
+from ..core import llm
+from . import prosody
 
 FILLERS = {"um", "umm", "uh", "er", "erm", "ah", "hmm", "mm"}
 # The LLM's bands, corrected to match human examiners: band = slope * llm_band + offset.

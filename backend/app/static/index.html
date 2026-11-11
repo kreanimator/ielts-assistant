@@ -67,7 +67,7 @@ $('start').onclick = async () => {
   mic.connect(micCtx.destination);  // outputs silence; keeps the node running
   mic.port.onmessage = event => sendMic(event.data);
 
-  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws = new WebSocket(`ws://${location.host}/ws/speaking`);
   ws.binaryType = 'arraybuffer';
   ws.onopen = () => {
     ws.send(JSON.stringify({ type: 'start', voice: $('voice').value, topic: $('topic').value || null }));

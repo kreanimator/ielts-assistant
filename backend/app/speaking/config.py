@@ -1,31 +1,8 @@
-"""Settings, read from environment variables with sensible defaults."""
+"""Speaking settings, read from environment variables with sensible defaults."""
 import os
-import sys
-from pathlib import Path
 
-if sys.platform == "darwin":  # a few PyTorch operations have no Apple GPU version yet: run them on the CPU
-    os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+from ..core.config import DEVICE
 
-
-def best_device() -> str:
-    """cuda (NVIDIA), mps (Apple Silicon) or cpu."""
-    import torch
-    if torch.cuda.is_available():
-        return "cuda"
-    if torch.backends.mps.is_available():
-        return "mps"
-    return "cpu"
-
-
-# Your sessions, recordings and the database (git-ignored, never leaves this computer).
-DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parents[2] / "data"))
-
-# Any OpenAI-compatible server works: llama.cpp (default, started by make llm), Ollama, vLLM.
-LLM_URL = os.environ.get("LLM_URL", "http://127.0.0.1:8081/v1")
-LLM_MODEL = os.environ.get("LLM_MODEL", "qwen3.5-9b")
-
-# The device for Kokoro and the pronunciation model: cuda, mps or cpu (default: the best found).
-DEVICE = os.environ.get("DEVICE") or best_device()
 # Whisper runs on NVIDIA GPUs or the CPU (it has no Apple GPU version). Without an NVIDIA
 # GPU a smaller model keeps the live transcript quick; set WHISPER_MODEL=large-v3-turbo
 # for the best accuracy if your computer is fast enough.
@@ -53,6 +30,3 @@ WRAP_UP_SECONDS = float(os.environ.get("WRAP_UP_SECONDS", "30"))
 PREP_SECONDS = float(os.environ.get("PREP_SECONDS", "60"))
 LONG_TURN_SECONDS = float(os.environ.get("LONG_TURN_SECONDS", "120"))
 LONG_TURN_SILENCE_MS = int(os.environ.get("LONG_TURN_SILENCE_MS", "5000"))
-
-HOST = os.environ.get("HOST", "127.0.0.1")
-PORT = int(os.environ.get("PORT", "8000"))

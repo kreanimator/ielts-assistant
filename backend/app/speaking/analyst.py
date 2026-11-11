@@ -4,7 +4,7 @@ Pronunciation needs the audio, not the transcript; it comes with the phoneme mod
 """
 import re
 
-from . import llm
+from ..core import llm
 
 CATEGORIES = ["grammar", "vocabulary", "fluency", "coherence"]
 
