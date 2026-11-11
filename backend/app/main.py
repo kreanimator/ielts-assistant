@@ -1,13 +1,14 @@
 """The backend: one FastAPI app that mounts each module's routes.
 
   /api/speaking/..., /ws/speaking   the Speaking module (see speaking/router.py)
+  /api/writing/...                  the Writing module (see writing/router.py)
   /api/sessions/...                 past sessions and reports, for every module (see core/history.py)
   GET /api/dashboard                the home screen's bands and progress (see core/dashboard.py)
   GET /                             the Flutter app (after `make frontend`)
   GET /dev                          a plain developer test page (Speaking)
 
-A new module (Writing, later Listening and Reading) lives in its own package with its own
-router, included below.
+Each module (Speaking, Writing, later Listening and Reading) lives in its own package with its
+own router, included below.
 """
 import logging
 from pathlib import Path
@@ -19,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .core import dashboard, history
 from .speaking.router import router as speaking
+from .writing.router import router as writing
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
 
@@ -35,6 +37,7 @@ app.add_middleware(
 app.include_router(history.router)
 app.include_router(dashboard.router)
 app.include_router(speaking)
+app.include_router(writing)
 
 
 @app.get("/dev")

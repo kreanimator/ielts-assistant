@@ -134,17 +134,28 @@ http://127.0.0.1:8000/dev.
 
 ### Practise with your own IELTS books
 
-If you own IELTS books as PDF files, import their Speaking tests (with the LLM
-server running):
+If you own IELTS books as PDF files, import their Speaking and Writing tests (with the
+LLM server running):
 
 ```bash
 make books BOOKS='~/Books/IELTS/*.pdf'
 ```
 
 Scanned books are read with OCR, about 1 second per page; books with a text layer
-take under a minute. Books in the three-part Speaking format work (Cambridge IELTS 3
-and later); the older role-play format of Cambridge IELTS 1 and 2 is skipped. The tests are saved in `data/private/books/`, which git
-ignores. Then choose a training mode and pick a test under **Questions**.
+take under a minute. The tests are saved in `data/private/books/`, which git ignores.
+
+- **Speaking:** books in the three-part Speaking format work (Cambridge IELTS 3 and
+  later); the older role-play format of Cambridge IELTS 1 and 2 is skipped. Choose a
+  training mode and pick a test under **Questions**.
+- **Writing:** every test's General Training Task 1 (the letter) and Task 2 (the essay),
+  and the Academic tests' Task 2 essays (their Task 1 needs a chart, which is a picture).
+  The books' answers come too: candidates' sample answers with their band and the
+  examiner's comment, and examiners' model answers. Answers printed in handwriting are
+  read with OCR; when even that fails, only the band and the comment are kept. Writing
+  practice comes with milestone 18.
+
+Imported books before Writing was added? `make writing-books` adds their Writing tests
+from the pages read then, without the PDFs (but handwriting can only be read with them).
 
 ### The full exam
 
