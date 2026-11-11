@@ -51,7 +51,8 @@ backend/app/
   speaking/      examiner, analyst, exam timing, STT/TTS/VAD, fluency, pronunciation,
                  intonation, report, drills, topics, book import
                  routes: /api/speaking/*, /ws/speaking
-  writing/       (milestone 17 on) book import, assessor, report; routes: /api/writing/*
+  writing/       Writing tests and answers from your books; routes: /api/writing/*
+                 (assessor and report from milestone 18)
 frontend/lib/
   main.dart      the app
   home/          the dashboard: a band per skill, the overall band, progress, recent sessions
@@ -149,8 +150,12 @@ without any books.
    average of the last 5 sessions with a band), an overall band (IELTS rounding, marked as
    partial until all four skills have one), progress and recent sessions; sessions have a
    module (older ones become Speaking), and history, reports and charts moved to the core
-17. Writing tests from your books: General Training Task 1 (letters) and Task 2 (essays),
-   with the books' sample answers and their examiner bands, from the cached page texts
+17. ✅ Writing tests from your books: General Training Task 1 (letters) and Task 2 (essays),
+   and Academic Task 2 essays, with the books' sample answers (band and examiner's comment),
+   model answers, and `make writing-books` to import them from the cached page texts.
+   Headings and bands are read by the code; the LLM copies the prompts and finds where each
+   answer starts, and never writes an answer. Answers printed in handwriting are read by OCR
+   with the PDF, else only their band and comment are kept
 18. Writing practice: Task 1 and Task 2 with a word counter, assessed on Task Achievement /
    Task Response, Coherence and Cohesion, Lexical Resource and Grammar (evidence quoted,
    word count and length penalty measured), with corrections and a writing band
