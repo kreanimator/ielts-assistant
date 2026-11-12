@@ -40,6 +40,7 @@ class ReportView extends StatelessWidget {
             ),
           ],
         ),
+        if (report.note != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(report.note!)),
         const SizedBox(height: 16),
         for (final c in report.criteria) _CriterionCard(c),
         if (report.strengths.isNotEmpty)

@@ -11,6 +11,18 @@
                               saves your answer as a session and returns {"session": "<id>"};
                               then POST /api/sessions/<id>/report writes the report (see assessor.py)
 
+The full test (see test.py), timed on the server:
+  POST /api/writing/tests     {"source": "book", "book": "<id>", "test": "2"} or {"source": "new", "topic": "..."}
+                              starts a test: both tasks, 60 minutes from now; returns its state:
+                              {"session", "title", "tasks": [task 1, task 2], "minutes", "answers": {"1", "2"},
+                               "seconds_left", "finished"}
+  GET  /api/writing/tests/<id>          its state (to continue after a reload); a test whose time ran
+                                        out comes back finished
+  PUT  /api/writing/tests/<id>/answers  {"1": "...", "2": "..."} saves the answers so far; 409 after the
+                                        deadline (the app saves every few seconds)
+  POST /api/writing/tests/<id>/finish   {"1": ..., "2": ...} (optional, saved first if still in time)
+                                        ends the test; then POST /api/sessions/<id>/report
+
 A Writing session stores the task as the examiner's message and your answer as the candidate's
 message, with the task itself and the time you took in the answer's "delivery".
 """
@@ -21,10 +33,10 @@ from pydantic import BaseModel, Field
 
 from ..core import llm, modules, storage
 from ..core.text import word_count
-from . import assessor, books, tasks
+from . import assessor, books, tasks, test
 
 router = APIRouter()
-MODES = {"task1": "Task 1 · Letter", "task2": "Task 2 · Essay"}
+MODES = {"task1": "Task 1 · Letter", "task2": "Task 2 · Essay", "test": "Full test"}
 modules.register("writing", MODES, assessor.build)
 
 
@@ -82,6 +94,57 @@ async def save_answer(body: Answer):
     storage.set_answer_field(session, 0, "delivery", {"task": task, "seconds": body.seconds,
                                                       "words": word_count(body.answer)})
     return {"session": session}
+
+
+class TestStart(BaseModel):
+    source: Literal["book", "new"]
+    book: str | None = None
+    test: str | None = None
+    topic: str | None = Field(default=None, max_length=200)
+
+
+@router.post("/api/writing/tests")
+async def start_test(body: TestStart):
+    try:
+        return await test.start(body.source, body.book, body.test, body.topic)
+    except LookupError as e:
+        raise HTTPException(404, str(e)) from e
+
+
+@router.get("/api/writing/tests/{session_id}")
+def test_state(session_id: str):
+    state = test.state(session_id)
+    if state is None:
+        raise HTTPException(404, "No such test")
+    return state
+
+
+@router.put("/api/writing/tests/{session_id}/answers")
+def save_test_answers(session_id: str, answers: dict[str, str]):
+    _test_or_404(session_id)
+    if any(len(v) > 20000 for v in answers.values()):
+        raise HTTPException(413, "The answer is too long")
+    try:
+        return test.save(session_id, answers)
+    except test.TimeUp as e:
+        raise HTTPException(409, "Time is up: the answers saved before the end are kept") from e
+
+
+@router.post("/api/writing/tests/{session_id}/finish")
+def finish_test(session_id: str, answers: dict[str, str] | None = None):
+    _test_or_404(session_id)
+    if answers:
+        try:
+            test.save(session_id, answers)
+        except test.TimeUp:
+            pass  # too late: the last answers saved in time count
+    test.finish(session_id)
+    return test.state(session_id)
+
+
+def _test_or_404(session_id: str):
+    if test.state(session_id) is None:
+        raise HTTPException(404, "No such test")
 
 
 @router.get("/api/writing/books")

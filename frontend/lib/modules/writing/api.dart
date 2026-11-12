@@ -8,7 +8,8 @@ import 'package:http/http.dart' as http;
 import '../../core/api.dart';
 
 /// The modes' titles, as the backend names them (for pages opened outside the dashboard).
-String writingModeTitle(String mode) => const {'task1': 'Task 1 · Letter', 'task2': 'Task 2 · Essay'}[mode] ?? mode;
+String writingModeTitle(String mode) =>
+    const {'task1': 'Task 1 · Letter', 'task2': 'Task 2 · Essay', 'test': 'Full test'}[mode] ?? mode;
 
 /// A task to practise, as the backend gives it; sent back unchanged with the answer.
 class WritingTask {
@@ -90,3 +91,59 @@ Future<String> saveAnswer(WritingTask task, String answer, int seconds) async {
   );
   return reply['session'];
 }
+
+/// A full test in progress or finished (backend/app/writing/test.py). The clock is the server's.
+class TestState {
+  TestState.fromJson(Map<String, dynamic> json)
+    : session = json['session'],
+      title = json['title'] ?? '',
+      tasks = [for (final t in json['tasks']) WritingTask.fromJson(t)],
+      minutes = json['minutes'],
+      answers = Map<String, String>.from(json['answers']),
+      secondsLeft = json['seconds_left'],
+      finished = json['finished'];
+
+  final String session, title;
+  final List<WritingTask> tasks; // Task 1, Task 2
+  final int minutes, secondsLeft;
+  final Map<String, String> answers; // "1", "2" → the text saved on the server
+  final bool finished;
+}
+
+Future<TestState> startTest({required bool fromBook, String? book, String? test, String? topic}) async {
+  final body = {
+    'source': fromBook ? 'book' : 'new',
+    'book': ?book,
+    'test': ?test,
+    if (topic != null && topic.trim().isNotEmpty) 'topic': topic.trim(),
+  };
+  return TestState.fromJson(
+    await getJson(
+      http.post(apiUri('/api/writing/tests'), headers: {'Content-Type': 'application/json'}, body: jsonEncode(body)),
+    ),
+  );
+}
+
+Future<TestState> fetchTest(String id) async =>
+    TestState.fromJson(await getJson(http.get(apiUri('/api/writing/tests/$id'))));
+
+/// Saves the answers so far; returns the seconds left, or null when the time is up (the server
+/// keeps what was saved in time).
+Future<int?> saveTestAnswers(String id, Map<String, String> answers) async {
+  final response = await http.put(
+    apiUri('/api/writing/tests/$id/answers'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode(answers),
+  );
+  if (response.statusCode == 409) return null;
+  if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
+  return jsonDecode(response.body)['seconds_left'];
+}
+
+Future<void> finishTest(String id, Map<String, String> answers) => getJson(
+  http.post(
+    apiUri('/api/writing/tests/$id/finish'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode(answers),
+  ),
+);

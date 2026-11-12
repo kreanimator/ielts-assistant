@@ -13,7 +13,7 @@ per skill:
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
-> **Status:** milestones 1–18 work: a one-command install on Linux and Apple Silicon Macs, voice conversation with an AI examiner in the
+> **Status:** milestones 1–19 work: a one-command install on Linux and Apple Silicon Macs, voice conversation with an AI examiner in the
 > web app, the full exam with real timing, practice of each part on its own
 > (including the Part 2 cue card with a preparation minute), topic cards by letter,
 > drills for weak sounds and structures, corrections, fluency numbers and a
@@ -23,7 +23,7 @@ Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 > into modules, one per skill, and opens on a dashboard with your estimated band per skill,
 > an overall band and your progress. Writing practice works too: letters and essays from your
 > books or new ones, with a band report and corrections, its bands checked against the books'
-> sample answers. Next: the full Writing test with strict timing. See [docs/PLAN.md](docs/PLAN.md).
+> sample answers, and the full Writing test: both tasks in 60 minutes, timed on the server. See [docs/PLAN.md](docs/PLAN.md).
 
 ## The dashboard
 
@@ -213,8 +213,8 @@ Choose **Writing** on the dashboard, then the task and where it comes from:
   kind you choose (a formal, semi-formal or informal letter; an opinion, discussion,
   advantages, problem-and-solution or two-question essay).
 
-You write next to the task, with a word counter and the time left (it keeps counting past
-the time, but nothing stops you: the full test with strict timing comes in milestone 19).
+You write next to the task, with a word counter and the time left (in practice it keeps
+counting past the time and nothing stops you; the full test below is strict).
 As in the computer-delivered test, the browser's spelling check is off. Your answer is kept
 in the browser as a draft until you finish, so a reload does not lose it.
 
@@ -230,8 +230,27 @@ in the browser as a draft until you finish, so a reload does not lose it.
 The words are counted by the app, not by the AI. An answer under the minimum loses half a
 band of Task Achievement / Response if up to 10% short, one band if up to a third short and
 two bands if shorter (IELTS penalises short answers without saying how much; this is our
-estimate). Under 50 words there is no band, only corrections. With both tasks in one
-session (the full test, milestone 19), Task 2 counts twice in the writing band, as in IELTS.
+estimate). Under 50 words there is no band, only corrections. In the full test, Task 2
+counts twice in the writing band, as in IELTS.
+
+### The full Writing test
+
+**Full test** gives you both tasks, a letter and an essay from one General Training test in
+your books (or two new ones), and 60 minutes for both, as in the real test. You switch
+between the tasks with the tabs at the top and share the time as you like (about 20 minutes
+for Task 1 and 40 for Task 2 is advised).
+
+- **The clock runs on the server.** Your answers are saved there every 5 seconds; after the
+  deadline (with 10 seconds' grace for a save on its way) the server takes no more. When the
+  time is up the editors lock and the test is handed in with what was saved. **Hand in**
+  ends it earlier.
+- **Closing the tab does not stop it:** open Writing again and **Continue the test** (or see
+  the report, if the time ran out meanwhile).
+- **Scoring as in IELTS:** every task counts. A task left empty is band 0, and one of 20 words
+  or fewer is band 1. The writing band is (Task 1 + 2 × Task 2) / 3, and each criterion in the
+  report is combined the same way.
+
+For trying the app, `WRITING_TEST_MINUTES=2 make run` shortens the test.
 
 ### Drills
 

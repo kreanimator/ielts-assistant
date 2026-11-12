@@ -97,9 +97,13 @@ def tidy_letter(item: dict) -> dict:
     return {**item, "prompt": prompt, "bullets": bullets}
 
 
-def from_book(task: int, book_id: str | None = None, test: str | None = None) -> dict | None:
-    """The task from that test, or a random one from your books (None if you have none)."""
+def from_book(task: int, book_id: str | None = None, test: str | None = None, with_task2: bool = False) -> dict | None:
+    """The task from that test, or a random one from your books (None if you have none).
+    with_task2: only from tests that also have a Task 2 (for the full test)."""
     found = [t for t in book_tasks(task) if (book_id is None or t["book"] == book_id) and (test is None or t["test"] == test)]
+    if with_task2:
+        both = {(t["book"], t["test"]) for t in book_tasks(2)}
+        found = [t for t in found if (t["book"], t["test"]) in both]
     return random.choice(found) if found else None
 
 
