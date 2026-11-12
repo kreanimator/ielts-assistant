@@ -17,6 +17,7 @@ import numpy as np
 
 from ..core import llm
 from ..core.bands import round_band
+from ..core.text import moving_type_token_ratio
 from . import prosody
 
 FILLERS = {"um", "umm", "uh", "er", "erm", "ah", "hmm", "mm"}
@@ -173,13 +174,6 @@ def measured(answers: list[dict]) -> dict:
                                                                if a["delivery"] and a["delivery"].get("intonation")]) else None,
         "sounds": [{"expected": e, "heard": h, "count": n} for (e, h), n in sorted(sounds.items(), key=lambda kv: -kv[1])][:4],
     }
-
-
-def moving_type_token_ratio(tokens: list[str], window: int = 40) -> float:
-    """Share of different words, averaged over 40-word windows (fair across answer lengths)."""
-    if len(tokens) < window:
-        return len(set(tokens)) / max(1, len(tokens))
-    return float(np.mean([len(set(tokens[i:i + window])) / window for i in range(len(tokens) - window + 1)]))
 
 
 async def build(session: dict) -> dict:

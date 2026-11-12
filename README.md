@@ -6,13 +6,14 @@ per skill:
 - **Speaking** (works now): you talk into the microphone, an AI examiner talks back, a
   second agent checks your answers live, and after each session you get a report with
   an estimated band for each IELTS criterion.
-- **Writing** (next): General Training Task 1 and Task 2 from your own books, timed like
-  the real test, assessed on the four writing criteria with an overall band.
+- **Writing** (works now): General Training Task 1 (a letter) and Task 2 (an essay), from
+  your own books or new ones the AI writes, with a word counter and the clock, assessed on
+  the four writing criteria with corrections marked in your text and a writing band.
 - **Listening and Reading** (later).
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
-> **Status:** milestones 1–16 work: a one-command install on Linux and Apple Silicon Macs, voice conversation with an AI examiner in the
+> **Status:** milestones 1–18 work: a one-command install on Linux and Apple Silicon Macs, voice conversation with an AI examiner in the
 > web app, the full exam with real timing, practice of each part on its own
 > (including the Part 2 cue card with a preparation minute), topic cards by letter,
 > drills for weak sounds and structures, corrections, fluency numbers and a
@@ -20,7 +21,9 @@ Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 > (checked against human examiners' scores), a history with your recordings and
 > progress charts, and real test questions imported from your own books. The app is split
 > into modules, one per skill, and opens on a dashboard with your estimated band per skill,
-> an overall band and your progress. Writing comes next. See [docs/PLAN.md](docs/PLAN.md).
+> an overall band and your progress. Writing practice works too: letters and essays from your
+> books or new ones, with a band report and corrections, its bands checked against the books'
+> sample answers. Next: the full Writing test with strict timing. See [docs/PLAN.md](docs/PLAN.md).
 
 ## The dashboard
 
@@ -151,8 +154,8 @@ take under a minute. The tests are saved in `data/private/books/`, which git ign
   and the Academic tests' Task 2 essays (their Task 1 needs a chart, which is a picture).
   The books' answers come too: candidates' sample answers with their band and the
   examiner's comment, and examiners' model answers. Answers printed in handwriting are
-  read with OCR; when even that fails, only the band and the comment are kept. Writing
-  practice comes with milestone 18.
+  read with OCR; when even that fails, only the band and the comment are kept. Choose
+  **Your books** in Writing practice to write a real test's task.
 
 Imported books before Writing was added? `make writing-books` adds their Writing tests
 from the pages read then, without the PDFs (but handwriting can only be read with them).
@@ -198,6 +201,37 @@ list and the topics of your imported tests.
 
 Settings such as the voice or the end-of-turn pause are environment variables;
 see [backend/app/speaking/config.py](backend/app/speaking/config.py).
+
+### Writing practice
+
+Choose **Writing** on the dashboard, then the task and where it comes from:
+
+- **Task 1 · Letter** (General Training): at least 150 words in about 20 minutes, covering
+  the three bullet points. **Task 2 · Essay**: at least 250 words in about 40 minutes.
+- **Your books** gives a real task from an imported test (a random one, or the test you
+  pick). **New task** asks the AI for a new one, on your topic if you give one, and of the
+  kind you choose (a formal, semi-formal or informal letter; an opinion, discussion,
+  advantages, problem-and-solution or two-question essay).
+
+You write next to the task, with a word counter and the time left (it keeps counting past
+the time, but nothing stops you: the full test with strict timing comes in milestone 19).
+As in the computer-delivered test, the browser's spelling check is off. Your answer is kept
+in the browser as a draft until you finish, so a reload does not lose it.
+
+**Finish and get feedback** saves the answer and writes the report (about 40 seconds):
+
+- a band for **Task Achievement** (letters) or **Task Response** (essays), **Coherence and
+  Cohesion**, **Lexical Resource** and **Grammatical Range and Accuracy**, each with quotes
+  from your answer, and the task's band (their average, rounded like IELTS);
+- **corrections** underlined in your text (grammar, vocabulary, spelling, punctuation,
+  linking, style), each with the better words and why;
+- the numbers: words, paragraphs, words per sentence, the time you took.
+
+The words are counted by the app, not by the AI. An answer under the minimum loses half a
+band of Task Achievement / Response if up to 10% short, one band if up to a third short and
+two bands if shorter (IELTS penalises short answers without saying how much; this is our
+estimate). Under 50 words there is no band, only corrections. With both tasks in one
+session (the full test, milestone 19), Task 2 counts twice in the writing band, as in IELTS.
 
 ### Drills
 
@@ -254,14 +288,39 @@ Limits to keep in mind:
   words the experts marked correctly stressed, it disagreed 27% of the time, so 9
   of 10 of its warnings would have been false alarms. Showing them would mislead.
 
+### How realistic are the Writing bands?
+
+They are checked against the sample answers printed in the Cambridge books, each with the band
+an examiner gave it: `make calibrate-writing` (needs your books imported and the LLM server).
+Of the 60 sample answers imported from Cambridge IELTS 1–13 and 15, 36 could be used: the others were
+cut off at a page break, ran into other text, had the examiner's comment mixed in, or were
+garbled by OCR (the script lists each with the reason).
+
+| | Average difference | Average error | Within ½ band | Within 1 band | Correlation |
+|---|---|---|---|---|---|
+| The LLM's bands as they are | 0.86 too low | 0.94 | 44% | 69% | 0.69 |
+| With the correction (+0.9 on each criterion), each answer scored by a correction fitted without it | +0.04 | 0.62 | 67% | 92% | 0.67 |
+
+Limits to keep in mind:
+
+- 36 answers is few, and most are Task 2 essays (25; 11 letters). The books give one band per
+  answer, so one correction is used for all four criteria.
+- As in Speaking, the extremes are pulled toward the middle: answers the examiners gave 5 come
+  out about 1 band too high, those they gave 7.5 or 8 about 1 band too low.
+- The books' answers are scans with OCR slips; the LLM is told to ignore them when checking,
+  but some may still cost a little. Your own typed answers have no such slips.
+- The length penalty (above) is our estimate; few sample answers are under the minimum, so it
+  is barely tested.
+
 ## Features
 
 - **Modes:** full exam (Parts 1–3 with real timing), a single part, free-topic
-  conversation, drills
+  conversation, drills; Writing Task 1 letters and Task 2 essays
 - **Live panels:** examiner avatar, your live transcript, corrections
 - **Report:** estimated band for Fluency & Coherence, Lexical Resource,
   Grammatical Range & Accuracy and Pronunciation, each backed by measured
-  evidence and suggested fixes
+  evidence and suggested fixes; for Writing, the four writing criteria and
+  corrections marked in your text
 - **History:** past sessions, replay of your recordings, progress over time
 - **Your own material:** import questions from IELTS books you own (kept private,
   see below)

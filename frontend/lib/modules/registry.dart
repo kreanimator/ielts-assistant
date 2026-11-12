@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'speaking/speaking.dart';
 import 'speaking/speaking_page.dart';
+import 'writing/writing.dart';
+import 'writing/writing_page.dart';
 
 /// What the dashboard needs from each module. A skill without [page] is "coming soon".
 class SkillModule {
@@ -25,7 +27,14 @@ class SkillModule {
 const skillModules = {
   'listening': SkillModule(id: 'listening', icon: Icons.headphones_outlined, blurb: 'Four recordings, 40 questions'),
   'reading': SkillModule(id: 'reading', icon: Icons.menu_book_outlined, blurb: 'Three passages, 40 questions'),
-  'writing': SkillModule(id: 'writing', icon: Icons.edit_note, blurb: 'Task 1 letter and Task 2 essay'),
+  'writing': SkillModule(
+    id: 'writing',
+    icon: Icons.edit_note,
+    blurb: 'Task 1 letter and Task 2 essay, with corrections',
+    page: _writingPage,
+    openSession: openWritingSession,
+    openHistory: openWritingHistory,
+  ),
   'speaking': SkillModule(
     id: 'speaking',
     icon: Icons.record_voice_over_outlined,
@@ -37,3 +46,5 @@ const skillModules = {
 };
 
 Widget _speakingPage(BuildContext context) => const SpeakingPage();
+
+Widget _writingPage(BuildContext context) => const WritingPage();
