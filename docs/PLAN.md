@@ -51,8 +51,8 @@ backend/app/
   speaking/      examiner, analyst, exam timing, STT/TTS/VAD, fluency, pronunciation,
                  intonation, report, drills, topics, book import
                  routes: /api/speaking/*, /ws/speaking
-  writing/       Writing tests and answers from your books, new tasks from the LLM,
-                 the assessor and report; routes: /api/writing/*
+  writing/       Writing tests and answers from your books, new tasks from the LLM, the timed
+                 full test, the assessor and report; routes: /api/writing/*
 frontend/lib/
   main.dart      the app
   home/          the dashboard: a band per skill, the overall band, progress, recent sessions
@@ -164,6 +164,9 @@ without any books.
    and a writing band (Task 2 counts twice when both tasks are done). The bands are checked
    against 36 sample answers in the books (`make calibrate-writing`): the LLM was 0.86 bands
    too low, and a +0.9 shift brings it to +0.04 on average, 0.62 bands off per answer
-19. Full Writing test: both tasks in 60 minutes with strict server-side timing
+19. ✅ Full Writing test: both tasks of one test in 60 minutes, timed on the server (answers saved
+   every 5 seconds, none accepted after the deadline, handed in when the time is up, and a
+   test left open continues or ends by itself); every task counts (none: band 0, 20 words or
+   fewer: band 1), Task 2 twice
 20. Later: Listening and Reading from your books, scored with the answer keys and the
    official raw-score-to-band tables

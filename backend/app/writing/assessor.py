@@ -20,9 +20,11 @@ import re
 from ..core import llm
 from ..core.bands import round_band
 from ..core.text import moving_type_token_ratio, unknown_words, word_count
+from . import test
 from .tasks import as_text
 
-MIN_WORDS = 50  # shorter answers get corrections but no band
+MIN_WORDS = 50  # shorter answers get corrections but no band (in practice)
+UNANSWERED_WORDS = 20  # in the full test, this many words or fewer is band 1 (none: band 0)
 MAX_CORRECTED = 12  # words in one correction: longer is a rewrite, not a correction
 BANDS = [b / 2 for b in range(2, 19)]  # 1.0 .. 9.0
 # Added to each of the LLM's bands. Fitted with scripts/calibrate_writing.py on 36 sample answers
@@ -314,13 +316,34 @@ def writing_band(task_bands: dict[int, float]) -> float:
     return next(iter(task_bands.values()))
 
 
+def unanswered(task: dict, words: int) -> dict:
+    """A test task with 20 words or fewer: IELTS gives band 0 to no answer and band 1 to 20 words
+    or fewer, without reading it further."""
+    band = 0.0 if words == 0 else 1.0
+    summary = ("You did not answer this task." if words == 0 else
+               f"{words} words: an answer of 20 words or fewer gets band 1.")
+    criteria = [{"id": key, "name": NAMES[key][task["task"]] if key == "task_response" else NAMES[key],
+                 "evidence": [], "summary": summary, "band": band} for key in CRITERIA]
+    return {"task": task["task"], "stats": {"words": words, "minimum": task["words"]}, "length_penalty": 0.0,
+            "criteria": criteria, "band": band, "corrections": [], "strengths": [], "priorities": []}
+
+
 async def build(session: dict) -> dict:
-    """The report of a Writing session: each answer's assessment, and the writing band."""
+    """The report of a Writing session: each answer's assessment, and the writing band.
+
+    Practice (one task): an answer under MIN_WORDS gets corrections but no band. The full test
+    (mode "test"): every task counts, as in IELTS; 20 words or fewer is band 1, none is band 0."""
+    session = test.finish_if_needed(session)
+    full_test = session["mode"] == "test"
     answers = [m for m in session["messages"] if m["role"] == "candidate"]
     tasks, short = [], []
     for m in answers:
         task = m["delivery"]["task"]
-        if word_count(m["text"]) < MIN_WORDS:
+        words = word_count(m["text"])
+        if full_test and words <= UNANSWERED_WORDS:
+            tasks.append(unanswered(task, words))
+            continue
+        if not full_test and words < MIN_WORDS:
             short.append(task["task"])
         tasks.append(await assess(task, m["text"]))
     scored = [t for t in tasks if t["task"] not in short]
@@ -335,6 +358,8 @@ async def build(session: dict) -> dict:
         by_task = {t["task"]: {c["id"]: c for c in t["criteria"]} for t in scored}
         criteria = [{**by_task[2][c["id"]],
                      "name": "Task Achievement / Response" if c["id"] == "task_response" else c["name"],
+                     "summary": " ".join(f"Task {n}: {by_task[n][c['id']]['summary']}" for n in (1, 2)),
+                     "evidence": [e for n in (1, 2) for e in by_task[n][c["id"]]["evidence"][:2]],
                      "band": writing_band({n: by_task[n][c["id"]]["band"] for n in by_task})}
                     for c in by_task[2].values()]
     report.update(
@@ -345,4 +370,11 @@ async def build(session: dict) -> dict:
     )
     if short:
         report["note"] = f"Task {short[0]} has under {MIN_WORDS} words, so only the other task is in the band."
+    elif full_test:
+        report["note"] = (f"Task 1 band {formatted(bands[1])}, Task 2 band {formatted(bands[2])}: "
+                          f"the writing band counts Task 2 twice.")
     return report
+
+
+def formatted(band: float) -> str:
+    return f"{band:g}"

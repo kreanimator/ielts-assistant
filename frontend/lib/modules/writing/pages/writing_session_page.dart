@@ -5,6 +5,7 @@ import '../../../core/widgets/band.dart';
 import '../../../core/widgets/report_view.dart';
 import '../api.dart';
 import '../widgets/task_card.dart';
+import 'writing_test_page.dart';
 
 const _categoryColors = {
   'grammar': Color(0xFFC62828),
@@ -40,12 +41,24 @@ class _WritingSessionPageState extends State<WritingSessionPage> {
 
   Future<void> _load() async {
     try {
-      final session = await fetchSession(widget.id);
+      var session = await fetchSession(widget.id);
+      if (_inProgress(session)) {
+        await fetchTest(widget.id); // finishes it on the server if its time ran out
+        session = await fetchSession(widget.id);
+      }
       setState(() => _session = session);
-      if (session.report == null) await _writeReport();
+      if (session.report == null && !_inProgress(session)) await _writeReport();
     } catch (e) {
       setState(() => _error = 'Could not load this session ($e).');
     }
+  }
+
+  bool _inProgress(StoredSession s) => s.mode == 'test' && s.details?['finished'] == false;
+
+  Future<void> _continueTest() async {
+    final state = await fetchTest(widget.id);
+    if (!mounted) return;
+    await Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => WritingTestPage(state: state)));
   }
 
   Future<void> _writeReport({bool again = false}) async {
@@ -89,7 +102,7 @@ class _WritingSessionPageState extends State<WritingSessionPage> {
       appBar: AppBar(
         title: Text(session == null ? 'Writing' : session.title(widget.modeTitle(session.mode))),
         actions: [
-          if (session != null && !_writing)
+          if (session != null && !_writing && !_inProgress(session))
             IconButton(
               tooltip: 'Write the report again',
               onPressed: () => _writeReport(again: true),
@@ -107,7 +120,16 @@ class _WritingSessionPageState extends State<WritingSessionPage> {
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    if (_writing)
+                    if (_inProgress(session))
+                      Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.timer_outlined),
+                          title: const Text('This test is still in progress'),
+                          subtitle: const Text('The clock keeps running on the server.'),
+                          trailing: FilledButton(onPressed: _continueTest, child: const Text('Continue')),
+                        ),
+                      )
+                    else if (_writing)
                       const _WritingReport()
                     else if (session.report != null)
                       ReportView(report: session.report!),
@@ -305,7 +327,7 @@ class _WritingReport extends StatelessWidget {
         children: [
           SizedBox.square(dimension: 24, child: CircularProgressIndicator(strokeWidth: 3)),
           SizedBox(width: 16),
-          Expanded(child: Text('Reading your answer and writing the report. This takes about 40 seconds.')),
+          Expanded(child: Text('Reading your answers and writing the report: about 40 seconds per task.')),
         ],
       ),
     ),

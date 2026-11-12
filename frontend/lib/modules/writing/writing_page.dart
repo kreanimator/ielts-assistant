@@ -6,6 +6,7 @@ import 'package:web/web.dart' as web;
 
 import 'api.dart';
 import 'pages/writing_session_page.dart';
+import 'pages/writing_test_page.dart';
 import 'widgets/task_card.dart';
 import 'words.dart';
 
@@ -29,7 +30,7 @@ class _WritingPageState extends State<WritingPage> {
   String? _error;
 
   // The setup.
-  int _taskNumber = 2;
+  int _taskNumber = 2; // 1, 2, or 0 for the full test (both tasks)
   bool _fromBook = true;
   BookTest? _test; // null: a random test
   String? _kind; // null: any type
@@ -43,6 +44,7 @@ class _WritingPageState extends State<WritingPage> {
   Timer? _clock;
   bool _saving = false;
   ({WritingTask task, String text, int seconds})? _draft; // an unfinished answer from before
+  TestState? _activeTest; // a full test started before (in progress, or ended while away)
 
   @override
   void initState() {
@@ -67,11 +69,48 @@ class _WritingPageState extends State<WritingPage> {
       setState(() {
         _options = options;
         _tests = tests;
-        _fromBook = (options.bookTasks[_taskNumber] ?? 0) > 0;
+        _fromBook = _inBooks(options) > 0;
       });
+      final active = rememberedTest();
+      if (active != null) {
+        try {
+          final state = await fetchTest(active);
+          setState(() => _activeTest = state);
+        } catch (_) {
+          rememberTest(null); // deleted, or another database
+        }
+      }
     } catch (e) {
       setState(() => _error = 'Could not reach the backend ($e).');
     }
+  }
+
+  /// How many tasks (or, for the full test, General Training tests with both tasks) your books have.
+  int _inBooks(WritingOptions options) =>
+      _taskNumber == 0 ? _tests.where((t) => t.hasTask1 && t.hasTask2).length : options.bookTasks[_taskNumber] ?? 0;
+
+  Future<void> _openTest(TestState state) async {
+    if (state.finished) {
+      rememberTest(null);
+      setState(() => _activeTest = null);
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => WritingSessionPage(id: state.session, modeTitle: writingModeTitle),
+        ),
+      );
+      return;
+    }
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => WritingTestPage(state: state)));
+    // Back from the test: it may go on (the clock runs on the server) or be handed in.
+    final active = rememberedTest();
+    TestState? now;
+    if (active != null) {
+      try {
+        now = await fetchTest(active);
+      } catch (_) {}
+    }
+    if (mounted) setState(() => _activeTest = now);
   }
 
   void _changed() {
@@ -126,6 +165,16 @@ class _WritingPageState extends State<WritingPage> {
   Future<void> _start() async {
     setState(() => _loading = true);
     try {
+      if (_taskNumber == 0) {
+        final state = await startTest(
+          fromBook: _fromBook,
+          book: _fromBook ? _test?.book : null,
+          test: _fromBook ? _test?.test : null,
+          topic: _fromBook ? null : _topic.text,
+        );
+        if (mounted) await _openTest(state);
+        return;
+      }
       final task = await fetchTask(
         task: _taskNumber,
         fromBook: _fromBook,
@@ -227,12 +276,18 @@ class _WritingPageState extends State<WritingPage> {
     if (options == null) {
       return Center(child: _error == null ? const CircularProgressIndicator() : Text(_error!));
     }
-    final inBooks = options.bookTasks[_taskNumber] ?? 0;
+    final inBooks = _inBooks(options);
     final tests = [
       for (final t in _tests)
-        if (_taskNumber == 1 ? t.hasTask1 : t.hasTask2) t,
+        if (switch (_taskNumber) {
+          0 => t.hasTask1 && t.hasTask2,
+          1 => t.hasTask1,
+          _ => t.hasTask2,
+        })
+          t,
     ];
     final draft = _draft;
+    final active = _activeTest;
     final kinds = _taskNumber == 1 ? options.letterTypes : options.essayTypes.keys.toList();
     return Center(
       child: ConstrainedBox(
@@ -240,6 +295,33 @@ class _WritingPageState extends State<WritingPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (active != null)
+              Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                color: theme.colorScheme.tertiaryContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        active.finished ? 'Your test has ended' : 'Test in progress',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                      Text(
+                        active.finished
+                            ? 'The time ran out while you were away. What was saved has been handed in.'
+                            : '${active.title}: ${_clockText(active.secondsLeft)} left. The clock keeps running.',
+                      ),
+                      const SizedBox(height: 8),
+                      FilledButton(
+                        onPressed: () => _openTest(active),
+                        child: Text(active.finished ? 'See the report' : 'Continue the test'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             if (draft != null)
               Card(
                 margin: const EdgeInsets.only(bottom: 16),
@@ -278,25 +360,28 @@ class _WritingPageState extends State<WritingPage> {
             Text('Task', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             SegmentedButton<int>(
+              showSelectedIcon: false,
               segments: const [
-                ButtonSegment(value: 1, label: Text('Task 1 · Letter'), icon: Icon(Icons.mail_outline)),
-                ButtonSegment(value: 2, label: Text('Task 2 · Essay'), icon: Icon(Icons.article_outlined)),
+                ButtonSegment(value: 1, label: Text('Task 1 · Letter')),
+                ButtonSegment(value: 2, label: Text('Task 2 · Essay')),
+                ButtonSegment(value: 0, label: Text('Full test')),
               ],
               selected: {_taskNumber},
               onSelectionChanged: (s) => setState(() {
                 _taskNumber = s.first;
                 _test = null;
                 _kind = null;
-                _fromBook = (options.bookTasks[_taskNumber] ?? 0) > 0;
+                _fromBook = _inBooks(options) > 0;
               }),
             ),
             const SizedBox(height: 4),
-            Text(
-              _taskNumber == 1
-                  ? 'General Training: a letter of at least 150 words in about 20 minutes.'
-                  : 'An essay of at least 250 words in about 40 minutes. It counts twice in the writing band.',
-              style: theme.textTheme.bodySmall,
-            ),
+            Text(switch (_taskNumber) {
+              1 => 'General Training: a letter of at least 150 words in about 20 minutes.',
+              2 => 'An essay of at least 250 words in about 40 minutes. It counts twice in the writing band.',
+              _ =>
+                'Both tasks in 60 minutes, timed like the real test: the clock runs on the server and '
+                    'your answers are handed in when it stops. Task 2 counts twice.',
+            }, style: theme.textTheme.bodySmall),
             const SizedBox(height: 20),
             Text('Where the task comes from', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
@@ -342,25 +427,27 @@ class _WritingPageState extends State<WritingPage> {
                   border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String?>(
-                key: ValueKey(_taskNumber), // a new list of types
-                initialValue: _kind,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: _taskNumber == 1 ? 'Kind of letter' : 'Kind of essay',
-                  border: const OutlineInputBorder(),
+              if (_taskNumber != 0) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  key: ValueKey(_taskNumber), // a new list of types
+                  initialValue: _kind,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: _taskNumber == 1 ? 'Kind of letter' : 'Kind of essay',
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Any (random)')),
+                    for (final k in kinds)
+                      DropdownMenuItem(
+                        value: k,
+                        child: Text(_taskNumber == 1 ? _capital(k) : '${_capital(k)}: ${options.essayTypes[k]}'),
+                      ),
+                  ],
+                  onChanged: (k) => setState(() => _kind = k),
                 ),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('Any (random)')),
-                  for (final k in kinds)
-                    DropdownMenuItem(
-                      value: k,
-                      child: Text(_taskNumber == 1 ? _capital(k) : '${_capital(k)}: ${options.essayTypes[k]}'),
-                    ),
-                ],
-                onChanged: (k) => setState(() => _kind = k),
-              ),
+              ],
             ],
             const SizedBox(height: 20),
             FilledButton.icon(
@@ -368,7 +455,13 @@ class _WritingPageState extends State<WritingPage> {
               icon: _loading
                   ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.edit_outlined),
-              label: Text(_loading && !_fromBook ? 'Writing a new task...' : 'Start writing'),
+              label: Text(
+                _loading && !_fromBook
+                    ? 'Writing new tasks...'
+                    : _taskNumber == 0
+                    ? 'Start the test'
+                    : 'Start writing',
+              ),
             ),
           ],
         ),

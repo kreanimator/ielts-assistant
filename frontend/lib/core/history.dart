@@ -51,6 +51,7 @@ class StoredSession {
       voice = json['voice'],
       answerCount = json['answers'],
       report = json['report'] == null ? null : Report.fromJson(json['report']),
+      details = json['details'],
       messageJson = List<Map<String, dynamic>>.from(json['messages'] ?? []);
 
   final String id, module, mode, voice;
@@ -59,6 +60,7 @@ class StoredSession {
   final int answerCount;
   Report? report;
   final List<Map<String, dynamic>> messageJson; // read by the module; empty in the session list
+  final Map<String, dynamic>? details; // a module's own state, e.g. a Writing test in progress
 
   /// "Part 1 · Interview: Travel", given the mode's title.
   String title(String modeTitle) => topic == null ? modeTitle : '$modeTitle: $topic';

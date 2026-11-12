@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     topic TEXT,
     voice TEXT NOT NULL,
     model TEXT NOT NULL,
-    report TEXT                 -- JSON, once written
+    report TEXT,                -- JSON, once written
+    details TEXT                -- JSON: a module's own state (the Writing test's tasks, deadline, drafts)
 );
 CREATE TABLE IF NOT EXISTS messages (
     session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -56,6 +57,9 @@ def connect():
             columns = {row["name"] for row in db.execute("PRAGMA table_info(sessions)")}
             if "module" not in columns:  # a database from before the modules: all Speaking
                 db.execute("ALTER TABLE sessions ADD COLUMN module TEXT NOT NULL DEFAULT 'speaking'")
+                db.commit()
+            if "details" not in columns:  # from before the Writing test
+                db.execute("ALTER TABLE sessions ADD COLUMN details TEXT")
                 db.commit()
             _ready = True
         with db:
@@ -109,6 +113,11 @@ def set_answer_field(session_id: str, answer: int, field: str, value: dict):
 def set_report(session_id: str, report: dict):
     with connect() as db:
         db.execute("UPDATE sessions SET report = ? WHERE id = ?", (json.dumps(report), session_id))
+
+
+def set_details(session_id: str, details: dict):
+    with connect() as db:
+        db.execute("UPDATE sessions SET details = ? WHERE id = ?", (json.dumps(details), session_id))
 
 
 def set_topic(session_id: str, topic: str):
@@ -169,4 +178,5 @@ def _session(row: sqlite3.Row) -> dict:
         "model": row["model"],
         "answers": row["answers"],
         "report": json.loads(row["report"]) if row["report"] else None,
+        "details": json.loads(row["details"]) if row["details"] else None,
     }
