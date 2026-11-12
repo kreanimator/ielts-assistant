@@ -2,12 +2,13 @@
 
   /api/speaking/..., /ws/speaking   the Speaking module (see speaking/router.py)
   /api/writing/...                  the Writing module (see writing/router.py)
+  /api/reading/...                  the Reading module (see reading/router.py)
   /api/sessions/...                 past sessions and reports, for every module (see core/history.py)
   GET /api/dashboard                the home screen's bands and progress (see core/dashboard.py)
   GET /                             the Flutter app (after `make frontend`)
   GET /dev                          a plain developer test page (Speaking)
 
-Each module (Speaking, Writing, later Listening and Reading) lives in its own package with its
+Each module (Speaking, Writing, Reading, later Listening) lives in its own package with its
 own router, included below.
 """
 import logging
@@ -19,6 +20,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from .core import dashboard, history
+from .reading.router import router as reading
 from .speaking.router import router as speaking
 from .writing.router import router as writing
 
@@ -38,6 +40,7 @@ app.include_router(history.router)
 app.include_router(dashboard.router)
 app.include_router(speaking)
 app.include_router(writing)
+app.include_router(reading)
 
 
 @app.get("/dev")

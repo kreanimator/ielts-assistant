@@ -27,7 +27,7 @@ else
 endif
 LLAMA_DIR = tools/llama-$(LLAMA_VERSION)-$(LLAMA_BUILD)
 
-.PHONY: install install-esl start setup models app-models llm frontend frontend-dev run books writing-books esl-topics license-check \
+.PHONY: install install-esl start setup models app-models llm frontend frontend-dev run books writing-books reading-books esl-topics license-check \
 	calibrate-pronunciation calibrate-bands calibrate-writing check-platform
 
 # Everything in one go: Python environment, models, llama.cpp, the web app and the topic
@@ -109,12 +109,20 @@ frontend-dev:
 run:
 	cd backend && ../$(PYTHON) -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
-# Import the Speaking and Writing tests from your own IELTS books (the LLM server must be running):
+# Import the Speaking, Writing and Reading tests from your own IELTS books (the LLM server must be
+# running):
 #   make books BOOKS='~/Books/*.pdf'      (escape spaces in names: BOOKS='~/My\ Books/*.pdf')
 # They are saved in data/private/books/ (git-ignored). Never commit them.
 books:
 	PYTHONPATH=backend $(PYTHON) -m app.speaking.books $(BOOKS)
 	PYTHONPATH=backend $(PYTHON) -m app.writing.books $(BOOKS)
+	PYTHONPATH=backend $(PYTHON) -m app.reading.books $(BOOKS)
+
+# Import the Reading tests of books imported before (their pages and answer keys need the PDFs
+# once; no LLM needed):  make reading-books BOOKS='~/Books/*.pdf'   (or without BOOKS: from what
+# was saved then)
+reading-books:
+	PYTHONPATH=backend $(PYTHON) -m app.reading.books $(or $(BOOKS),--cached)
 
 # Import the Writing tests from the books imported before, from their saved page texts (no
 # PDFs needed; without them, answers printed in handwriting cannot be read with OCR).

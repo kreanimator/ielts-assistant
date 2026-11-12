@@ -47,12 +47,16 @@ on top of a shared core:
 backend/app/
   main.py        builds the app and mounts each module's router
   core/          settings, the LLM client, SQLite storage, the history API,
-                 reading your books' pages (text layer or OCR, cached)
+                 reading your books' pages (text layer or OCR, cached), scanned pages in
+                 reading order (columns), their answer keys (Listening and Reading), the
+                 clock of timed tests, band tables
   speaking/      examiner, analyst, exam timing, STT/TTS/VAD, fluency, pronunciation,
                  intonation, report, drills, topics, book import
                  routes: /api/speaking/*, /ws/speaking
   writing/       Writing tests and answers from your books, new tasks from the LLM, the timed
                  full test, the assessor and report; routes: /api/writing/*
+  reading/       Reading tests from your books as text (passages, question groups and their
+                 controls), the timed test, marking with the answer key; routes: /api/reading/*
 frontend/lib/
   main.dart      the app
   home/          the dashboard: a band per skill, the overall band, progress, recent sessions
@@ -61,6 +65,7 @@ frontend/lib/
   modules/       registry.dart (each skill's card, page, session and history pages)
     speaking/
     writing/
+    reading/
 ```
 
 Sessions carry their module. A module registers itself in core/modules.py with its training
@@ -168,5 +173,15 @@ without any books.
    every 5 seconds, none accepted after the deadline, handed in when the time is up, and a
    test left open continues or ends by itself); every task counts (none: band 0, 20 words or
    fewer: band 1), Task 2 twice
-20. Later: Listening and Reading from your books, scored with the answer keys and the
-   official raw-score-to-band tables
+20. ✅ Reading from your books, like the computer-delivered test: Academic and General Training
+   passages as text beside their questions, each with its control (TRUE / FALSE / NOT GIVEN
+   buttons, multiple choice, letters or headings to pick, gaps inside notes and sentences), a
+   bar of the parts and question numbers, 60 minutes timed on the server, marked with the
+   books' answer keys and given a band from the official raw-score tables, with the score of
+   each passage and a marked review of the test. The scans are read with OCR by position: the
+   passages in column order, the questions cut into groups by their headings, a group that
+   cannot be read for sure shown as its part of the page. The keys are read three times at
+   different sizes (an answer counts when two agree), and a test is offered only when all 40
+   answers were read for sure and each letter is one of its question's choices
+21. Listening from your books: the CD recordings played once, as in the test, with the
+   questions shown and answered the same way as in Reading, answer keys (already read in milestone 20) and band table

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'reading/reading.dart';
+import 'reading/reading_page.dart';
 import 'speaking/speaking.dart';
 import 'speaking/speaking_page.dart';
 import 'writing/writing.dart';
@@ -26,7 +28,14 @@ class SkillModule {
 
 const skillModules = {
   'listening': SkillModule(id: 'listening', icon: Icons.headphones_outlined, blurb: 'Four recordings, 40 questions'),
-  'reading': SkillModule(id: 'reading', icon: Icons.menu_book_outlined, blurb: 'Three passages, 40 questions'),
+  'reading': SkillModule(
+    id: 'reading',
+    icon: Icons.menu_book_outlined,
+    blurb: 'Three passages, 40 questions, marked with the key',
+    page: _readingPage,
+    openSession: openReadingSession,
+    openHistory: openReadingHistory,
+  ),
   'writing': SkillModule(
     id: 'writing',
     icon: Icons.edit_note,
@@ -48,3 +57,5 @@ const skillModules = {
 Widget _speakingPage(BuildContext context) => const SpeakingPage();
 
 Widget _writingPage(BuildContext context) => const WritingPage();
+
+Widget _readingPage(BuildContext context) => const ReadingPage();
