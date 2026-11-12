@@ -9,11 +9,14 @@ per skill:
 - **Writing** (works now): General Training Task 1 (a letter) and Task 2 (an essay), from
   your own books or new ones the AI writes, with a word counter and the clock, assessed on
   the four writing criteria with corrections marked in your text and a writing band.
-- **Listening and Reading** (later).
+- **Reading** (works now): Academic and General Training tests from your own books, shown as
+  the books print them beside an answer sheet, 60 minutes on the clock, marked with the books'
+  answer keys and given a band from the official table.
+- **Listening** (later).
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
-> **Status:** milestones 1–19 work: a one-command install on Linux and Apple Silicon Macs, voice conversation with an AI examiner in the
+> **Status:** milestones 1–20 work: a one-command install on Linux and Apple Silicon Macs, voice conversation with an AI examiner in the
 > web app, the full exam with real timing, practice of each part on its own
 > (including the Part 2 cue card with a preparation minute), topic cards by letter,
 > drills for weak sounds and structures, corrections, fluency numbers and a
@@ -23,7 +26,8 @@ Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 > into modules, one per skill, and opens on a dashboard with your estimated band per skill,
 > an overall band and your progress. Writing practice works too: letters and essays from your
 > books or new ones, with a band report and corrections, its bands checked against the books'
-> sample answers, and the full Writing test: both tasks in 60 minutes, timed on the server. See [docs/PLAN.md](docs/PLAN.md).
+> sample answers, and the full Writing test: both tasks in 60 minutes, timed on the server.
+> Reading tests from your books are timed and marked with their answer keys. See [docs/PLAN.md](docs/PLAN.md).
 
 ## The dashboard
 
@@ -137,8 +141,8 @@ http://127.0.0.1:8000/dev.
 
 ### Practise with your own IELTS books
 
-If you own IELTS books as PDF files, import their Speaking and Writing tests (with the
-LLM server running):
+If you own IELTS books as PDF files, import their Speaking, Writing and Reading tests (with
+the LLM server running):
 
 ```bash
 make books BOOKS='~/Books/IELTS/*.pdf'
@@ -157,8 +161,13 @@ take under a minute. The tests are saved in `data/private/books/`, which git ign
   read with OCR; when even that fails, only the band and the comment are kept. Choose
   **Your books** in Writing practice to write a real test's task.
 
+- **Reading:** every test whose answer key could be read for sure (see
+  [The Reading test](#the-reading-test)). Its pages are saved as pictures, about 13 per test.
+
 Imported books before Writing was added? `make writing-books` adds their Writing tests
 from the pages read then, without the PDFs (but handwriting can only be read with them).
+Before Reading was added? `make reading-books BOOKS='~/Books/IELTS/*.pdf'` adds their Reading
+tests (it needs the PDFs once, for the pages' pictures and the answer keys, but not the LLM).
 
 ### The full exam
 
@@ -252,6 +261,50 @@ for Task 1 and 40 for Task 2 is advised).
 
 For trying the app, `WRITING_TEST_MINUTES=2 make run` shortens the test.
 
+### The Reading test
+
+Choose **Reading** on the dashboard, then **Academic** or **General Training** and a test from
+your books (or any). The test looks like the computer-delivered IELTS: the passage as text on
+the left, its questions on the right, and a bar at the bottom with each passage (Academic) or
+section (General Training) and its question numbers, filled in once answered; a number takes
+you to its question. On a phone, a button switches between the passage and the questions.
+
+- **Each question has its own control**: TRUE / FALSE / NOT GIVEN (or YES / NO / NOT GIVEN)
+  buttons, the options of a multiple-choice question, boxes to tick for "Choose TWO letters",
+  a list to pick a letter or a heading from (with the people, endings or headings listed
+  above), and gaps to type in, inside the notes or the sentence where the book prints them.
+- **As printed**: the passage can be shown as the book's pages, to check a word the text got
+  wrong or to see a picture; A− and A+ change the size of the text. A group of questions that
+  could not be read for sure (a table, a diagram, a smudged scan) is shown as its part of the
+  page, with the same controls under it. A test whose text could not be read at all is shown
+  as its pages beside an answer sheet.
+- **60 minutes, timed on the server**, as in the Writing test: answers are saved every 5
+  seconds, none are taken after the deadline, and the test is handed in when the time is up
+  (or when you press **Hand in**). Closing the tab does not stop the clock: open Reading
+  again and **Continue the test**.
+- **Marked with the book's answer key.** Spelling counts in the gaps. The key's alternatives
+  are accepted ("4/four sides", "(musical) instruments", "talk // give a talk"), and questions
+  the key lets you answer in either order are marked that way.
+- **The band** comes from the official table that turns your score out of 40 into a band.
+  Academic and General Training have different tables: 30 right is band 7 in Academic and 6
+  in General Training. The report shows the score of each passage and every answer with
+  the key's answer next to the wrong ones; **See the test** opens the test again as you took
+  it, each question marked green or red, with the key's answer under a wrong one.
+
+The books are scanned, so they are read with OCR by position. The passages are put in reading
+order column by column (two or three columns, titles across them, letters of the paragraphs
+in the margin), and the questions are cut into their groups by their headings ("Questions
+14–18"); a group's kind of control comes from its answers in the key. The answer keys are
+read three times at different sizes, and an answer counts only when two readings agree (OCR
+mixes up "iii" and "viii"; a big serif "A" read as "V" loses to the "A" another reading saw).
+A test is offered only when all 40 of its answers were read for sure and each letter answer
+is one of its question's choices, so some tests are left out, and Cambridge IELTS 1, 2 and 4
+print their keys in other layouts that are not read at all. From Cambridge IELTS 1–13 and 15
+and IELTS 13 General Training, 22 tests are offered (12 Academic, 10 General Training); 20 of
+them as text.
+
+For trying the app, `READING_TEST_MINUTES=2 make run` shortens the test.
+
 ### Drills
 
 **Drill** practises one weak area. In a **sound drill** (/θ/, /ð/, /v/, /w/, /r/, /l/,
@@ -334,7 +387,7 @@ Limits to keep in mind:
 ## Features
 
 - **Modes:** full exam (Parts 1–3 with real timing), a single part, free-topic
-  conversation, drills; Writing Task 1 letters and Task 2 essays
+  conversation, drills; Writing Task 1 letters and Task 2 essays; Reading tests
 - **Live panels:** examiner avatar, your live transcript, corrections
 - **Report:** estimated band for Fluency & Coherence, Lexical Resource,
   Grammatical Range & Accuracy and Pronunciation, each backed by measured

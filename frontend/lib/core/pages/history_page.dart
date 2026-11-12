@@ -97,7 +97,7 @@ class SessionTile extends StatelessWidget {
       child: ListTile(
         leading: leading,
         title: Text(title),
-        subtitle: Text('${formatWhen(s.startedAt)} · ${s.answerCount} answer${s.answerCount == 1 ? '' : 's'}'),
+        subtitle: Text('${formatWhen(s.startedAt)} · ${_amount(s)}'),
         trailing: _BandText(s.report),
         onTap: onTap,
       ),
@@ -130,4 +130,12 @@ class _BandText extends StatelessWidget {
       ],
     );
   }
+}
+
+/// What a session holds: "12 answers", or a marked test's score ("31 of 40 right").
+String _amount(StoredSession s) {
+  final json = s.report?.json;
+  if (json?['raw'] case final int raw) return '$raw of ${json!['of']} right';
+  if (s.details?['finished'] == false) return 'in progress';
+  return '${s.answerCount} answer${s.answerCount == 1 ? '' : 's'}';
 }

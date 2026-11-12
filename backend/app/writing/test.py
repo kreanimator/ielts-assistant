@@ -3,10 +3,10 @@
 As in IELTS, you have 60 minutes for both tasks and decide how to share them (about 20 minutes for
 Task 1 and 40 for Task 2 is advised). The clock is kept here, not in the browser:
 
-- start() stores both tasks and the deadline in the session's details.
+- start() stores both tasks and the deadline in the session's details (the clock: core/timed.py).
 - The app saves your answers every few seconds (save()). The server accepts them until the
-  deadline, plus GRACE_SECONDS for a save already on its way; later saves are refused, so a slow
-  or paused browser cannot add time.
+  deadline, plus a grace period for a save already on its way; later saves are refused, so a
+  slow or paused browser cannot add time.
 - finish() turns the last saved answers into the session's answers (candidate messages), then the
   report can be written. A test whose time ran out is finished with what was saved, the next time
   it is opened (state()) or its report is asked for (see assessor.build).
@@ -16,24 +16,15 @@ details: {"tasks": [task 1, task 2], "deadline": ISO time, "minutes": 60,
 """
 import asyncio
 import os
-from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
 
-from ..core import llm, storage
+from ..core import llm, storage, timed
 from ..core.text import word_count
+from ..core.timed import TimeUp  # noqa: F401 (the router catches it)
 from . import tasks
 
 MINUTES = int(os.environ.get("WRITING_TEST_MINUTES", "60"))  # shorter for testing the app
-GRACE_SECONDS = 10
-
-
-class TimeUp(Exception):
-    """The answer came after the deadline."""
-
-
-def now() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 async def choose_tasks(source: str, book: str | None, test: str | None, topic: str | None) -> tuple[list[dict], str]:
@@ -57,7 +48,7 @@ async def start(source: str, book: str | None = None, test: str | None = None, t
     storage.set_details(session, {
         "tasks": chosen,
         "minutes": MINUTES,
-        "deadline": (now() + timedelta(minutes=MINUTES)).isoformat(),
+        "deadline": timed.deadline(MINUTES),
         "answers": {"1": "", "2": ""},
         "saved_at": None,
         "finished": False,
@@ -71,9 +62,9 @@ def state(session_id: str) -> dict | None:
     if session is None or session["mode"] != "test" or not session["details"]:
         return None
     details = session["details"]
-    left = seconds_left(details)
-    if not details["finished"] and left <= -GRACE_SECONDS:
+    if timed.expired(details):
         details = finish(session_id)
+    left = timed.seconds_left(details)
     return {
         "session": session_id,
         "title": session["topic"],
@@ -85,20 +76,16 @@ def state(session_id: str) -> dict | None:
     }
 
 
-def seconds_left(details: dict) -> float:
-    return (datetime.fromisoformat(details["deadline"]) - now()).total_seconds()
-
-
 def save(session_id: str, answers: dict[str, str]) -> dict:
     """Stores the answers ({"1": ..., "2": ...}, either or both). Raises TimeUp after the deadline."""
     session = storage.get_session(session_id)
     details = session["details"]
-    if details["finished"] or seconds_left(details) < -GRACE_SECONDS:
+    if not timed.in_time(details):
         raise TimeUp()
     details["answers"].update({k: v for k, v in answers.items() if k in ("1", "2")})
-    details["saved_at"] = now().isoformat()
+    details["saved_at"] = timed.now().isoformat()
     storage.set_details(session_id, details)
-    return {"seconds_left": max(0, round(seconds_left(details))), "saved": True}
+    return {"seconds_left": max(0, round(timed.seconds_left(details))), "saved": True}
 
 
 def finish(session_id: str) -> dict:
@@ -107,13 +94,12 @@ def finish(session_id: str) -> dict:
     details = session["details"]
     if details["finished"]:
         return details
-    taken = min(details["minutes"] * 60,
-                details["minutes"] * 60 - max(0.0, seconds_left(details)))
+    taken = timed.seconds_taken(details)
     for n, task in enumerate(details["tasks"]):
         text = details["answers"].get(str(task["task"]), "").strip()
         storage.add_message(session_id, "candidate", text, answer=n)
         storage.set_answer_field(session_id, n, "delivery", {
-            "task": task, "words": word_count(text), "seconds": None, "test_seconds": round(taken),
+            "task": task, "words": word_count(text), "seconds": None, "test_seconds": taken,
         })
     details["finished"] = True
     storage.set_details(session_id, details)
@@ -126,7 +112,7 @@ def finish_if_needed(session: dict) -> dict:
     details = session["details"]
     if session["mode"] != "test" or not details or details["finished"]:
         return session
-    if seconds_left(details) > -GRACE_SECONDS:
+    if not timed.expired(details):
         raise HTTPException(409, "This test is still in progress: finish it first")
     finish(session["id"])
     return storage.get_session(session["id"])

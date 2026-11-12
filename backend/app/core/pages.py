@@ -75,3 +75,37 @@ def ocr(path: Path, pages: list[int]):
         yield "\n".join(engine(image).txts or [])
         if n % 20 == 19:
             log.info("  OCR %d/%d pages", n + 1, len(pages))
+
+
+def ocr_boxes(path: Path, pages: list[int], width: int = 1000) -> dict[int, dict]:
+    """OCR with positions, for pages printed in columns (the answer keys), each page rendered
+    `width` pixels wide: its image size and its lines of text with their boxes,
+    {page: {"size": [w, h], "boxes": [[x0, y0, x1, y1, text]]}}."""
+    import numpy as np
+    import pypdfium2
+    from rapidocr import RapidOCR
+
+    engine = RapidOCR(params={"Global.log_level": "warning"})
+    pdf = pypdfium2.PdfDocument(path)
+    found = {}
+    for i in pages:
+        image = pdf[i].render(scale=width / pdf[i].get_width()).to_pil().convert("RGB")
+        result = engine(np.array(image))
+        boxes = result.boxes if result.boxes is not None else []
+        found[i] = {"size": list(image.size),
+                    "boxes": [[float(b[0][0]), float(b[0][1]), float(b[2][0]), float(b[2][1]), text]
+                              for b, text in zip(boxes, result.txts or [])]}
+    return found
+
+
+def render(path: Path, pages: list[int], folder: Path, width: int = 1400) -> None:
+    """Saves the pages as pictures (folder/<page>.jpg, `width` pixels wide), for the modules that
+    show the book's own pages (Reading: the passages with their tables and diagrams)."""
+    import pypdfium2
+
+    folder.mkdir(parents=True, exist_ok=True)
+    pdf = pypdfium2.PdfDocument(path)
+    for i in pages:
+        page = pdf[i]
+        image = page.render(scale=width / page.get_width()).to_pil().convert("RGB")
+        image.save(folder / f"{i}.jpg", quality=82, optimize=True)

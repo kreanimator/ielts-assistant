@@ -20,7 +20,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   # Bundled so the app never downloads fonts from the internet (SIL OFL 1.1, see assets/fonts/OFL-*.txt).
-  # Noto Sans is the fallback for the phonetic (IPA) symbols that Roboto lacks.
+  # Noto Sans is the fallback for the phonetic (IPA) symbols that Roboto lacks. Liberation Sans:
+  # SIL OFL 1.1 too (assets/fonts/OFL-LiberationSans.txt).
   fonts:
     - family: NotoSans
       fonts:
@@ -33,4 +34,13 @@ flutter:
         - asset: assets/fonts/Roboto-Medium.ttf
           weight: 500
         - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
+    # Metric-compatible with Arial, the face of the computer-delivered test (the Reading and
+    # Listening test screens).
+    - family: LiberationSans
+      fonts:
+        - asset: assets/fonts/LiberationSans-Regular.ttf
+        - asset: assets/fonts/LiberationSans-Italic.ttf
+          style: italic
+        - asset: assets/fonts/LiberationSans-Bold.ttf
           weight: 700
