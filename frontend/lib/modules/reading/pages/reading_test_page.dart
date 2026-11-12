@@ -63,7 +63,7 @@ class _ReadingTestPageState extends State<ReadingTestPage> {
   Timer? _tick, _autosave;
   bool _ending = false;
   bool _showQuestions = false; // on a narrow screen: the questions instead of the passage
-  bool _printed = false; // the passage as the book prints it
+  bool _printed = true; // the passage as the book prints it (the text is still rough: an option)
   int _part = 0;
   int? _current; // the question being worked on (framed in blue)
   bool _notesOpen = false;

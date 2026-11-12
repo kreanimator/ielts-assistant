@@ -22,7 +22,7 @@ class _ReadingReviewPageState extends State<ReadingReviewPage> {
   final Map<int, TextEditingController> _controllers = {};
   final Map<int, GlobalKey> _keys = {};
   int _part = 0;
-  bool _printed = false;
+  bool _printed = true;
   bool _showQuestions = false;
 
   @override
