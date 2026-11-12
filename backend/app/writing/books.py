@@ -33,6 +33,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 
 from ..core import llm, pages
+from ..core.text import readability
 
 log = logging.getLogger("ielts.writing.books")
 
@@ -245,21 +246,6 @@ def cut_answer(text: str, first_words: str) -> str | None:
              and not re.search(r"(model and )?sample (writing )?answers? (for writing|sheets)", line, re.I)]
     answer = re.sub(r"[ \t]+", " ", "\n".join(lines)).strip()
     return answer if len(answer.split()) >= MIN_WORDS else None
-
-
-_dictionary = None
-
-
-def readability(text: str) -> float:
-    """The share of the words that are English words (the CMU dictionary)."""
-    global _dictionary
-    if _dictionary is None:
-        from nltk.corpus import cmudict  # installed with the pronunciation model (g2p_en)
-        _dictionary = set(cmudict.words())
-    words = re.findall(r"[A-Za-z']+", text)
-    if not words:
-        return 0.0
-    return sum(w.lower().strip("'") in _dictionary for w in words) / len(words)
 
 
 def letter_start(begin: str) -> str:

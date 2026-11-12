@@ -28,7 +28,7 @@ endif
 LLAMA_DIR = tools/llama-$(LLAMA_VERSION)-$(LLAMA_BUILD)
 
 .PHONY: install install-esl start setup models app-models llm frontend frontend-dev run books writing-books esl-topics license-check \
-	calibrate-pronunciation calibrate-bands check-platform
+	calibrate-pronunciation calibrate-bands calibrate-writing check-platform
 
 # Everything in one go: Python environment, models, llama.cpp, the web app and the topic
 # cards for the "By letter" mode (ESL=0 skips those).
@@ -144,6 +144,11 @@ SET ?= dev
 N ?= 60
 calibrate-bands:
 	$(PYTHON) -u scripts/calibrate_bands.py --set $(SET) --n $(N)
+
+# Check the Writing bands against the examiners' bands of the sample answers in your books
+# (needs your books imported with make books, and the LLM server). ARGS=--rejudge judges again.
+calibrate-writing:
+	$(PYTHON) -u scripts/calibrate_writing.py $(ARGS)
 
 # Fail if a GPL or AGPL package got installed.
 license-check:

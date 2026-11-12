@@ -51,8 +51,8 @@ backend/app/
   speaking/      examiner, analyst, exam timing, STT/TTS/VAD, fluency, pronunciation,
                  intonation, report, drills, topics, book import
                  routes: /api/speaking/*, /ws/speaking
-  writing/       Writing tests and answers from your books; routes: /api/writing/*
-                 (assessor and report from milestone 18)
+  writing/       Writing tests and answers from your books, new tasks from the LLM,
+                 the assessor and report; routes: /api/writing/*
 frontend/lib/
   main.dart      the app
   home/          the dashboard: a band per skill, the overall band, progress, recent sessions
@@ -60,6 +60,7 @@ frontend/lib/
                  band charts, the history page
   modules/       registry.dart (each skill's card, page, session and history pages)
     speaking/
+    writing/
 ```
 
 Sessions carry their module. A module registers itself in core/modules.py with its training
@@ -156,11 +157,13 @@ without any books.
    Headings and bands are read by the code; the LLM copies the prompts and finds where each
    answer starts, and never writes an answer. Answers printed in handwriting are read by OCR
    with the PDF, else only their band and comment are kept
-18. Writing practice: Task 1 and Task 2 with a word counter, assessed on Task Achievement /
-   Task Response, Coherence and Cohesion, Lexical Resource and Grammar (evidence quoted,
-   word count and length penalty measured), with corrections and a writing band
-   (Task 2 counts twice)
-19. Full Writing test: both tasks in 60 minutes with strict server-side timing, and the
-   writing bands checked against the books' sample answers (`make calibrate-writing`)
+18. ✅ Writing practice: Task 1 (letters) and Task 2 (essays) from your books or new ones written
+   by the LLM, with a word counter, the clock and a draft kept in the browser; assessed on Task
+   Achievement / Task Response, Coherence and Cohesion, Lexical Resource and Grammar (evidence
+   quoted; words counted by the code, with a length penalty), corrections marked in the text,
+   and a writing band (Task 2 counts twice when both tasks are done). The bands are checked
+   against 36 sample answers in the books (`make calibrate-writing`): the LLM was 0.86 bands
+   too low, and a +0.9 shift brings it to +0.04 on average, 0.62 bands off per answer
+19. Full Writing test: both tasks in 60 minutes with strict server-side timing
 20. Later: Listening and Reading from your books, scored with the answer keys and the
    official raw-score-to-band tables

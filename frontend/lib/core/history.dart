@@ -18,7 +18,7 @@ class Criterion {
 }
 
 class Report {
-  Report.fromJson(Map<String, dynamic> json)
+  Report.fromJson(this.json)
     : enough = json['enough'],
       note = json['note'],
       overall = (json['overall'] as num?)?.toDouble(),
@@ -26,7 +26,8 @@ class Report {
       strengths = List<String>.from(json['strengths'] ?? []),
       priorities = List<String>.from(json['priorities'] ?? []);
 
-  final bool enough; // false: too little speech for band estimates, see [note]
+  final Map<String, dynamic> json; // all of it, for what only one module's reports have
+  final bool enough; // false: too little to judge for band estimates, see [note]
   final String? note;
   final double? overall;
   final List<Criterion> criteria;
