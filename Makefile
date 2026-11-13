@@ -106,8 +106,13 @@ frontend-dev:
 		--dart-define=BACKEND=http://127.0.0.1:8000
 
 # Start the backend at http://127.0.0.1:8000 (the developer test page is at /dev).
+# A long WebSocket ping timeout: a turn's heavy work (TTS, pronunciation, the slow LLM)
+# can stall the event loop past uvicorn's default 20 s, which would otherwise drop the
+# session mid-conversation ("Lost the connection"). On localhost there is no network to
+# keep alive, so a generous timeout only prevents false drops.
 run:
-	cd backend && ../$(PYTHON) -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+	cd backend && ../$(PYTHON) -m uvicorn app.main:app --host 127.0.0.1 --port 8000 \
+		--ws-ping-interval 30 --ws-ping-timeout 300
 
 # Import the Speaking, Writing and Reading tests from your own IELTS books (the LLM server must be
 # running):
