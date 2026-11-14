@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'listening/listening.dart';
+import 'listening/listening_page.dart';
 import 'reading/reading.dart';
 import 'reading/reading_page.dart';
 import 'speaking/speaking.dart';
@@ -27,7 +29,14 @@ class SkillModule {
 }
 
 const skillModules = {
-  'listening': SkillModule(id: 'listening', icon: Icons.headphones_outlined, blurb: 'Four recordings, 40 questions'),
+  'listening': SkillModule(
+    id: 'listening',
+    icon: Icons.headphones_outlined,
+    blurb: 'Four recordings played once, 40 questions, marked with the key',
+    page: _listeningPage,
+    openSession: openListeningSession,
+    openHistory: openListeningHistory,
+  ),
   'reading': SkillModule(
     id: 'reading',
     icon: Icons.menu_book_outlined,
@@ -59,3 +68,5 @@ Widget _speakingPage(BuildContext context) => const SpeakingPage();
 Widget _writingPage(BuildContext context) => const WritingPage();
 
 Widget _readingPage(BuildContext context) => const ReadingPage();
+
+Widget _listeningPage(BuildContext context) => const ListeningPage();

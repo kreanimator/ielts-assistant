@@ -260,43 +260,18 @@ def with_web_text(book: dict) -> dict:
             sure = key is not None and len(key["answers"]) == 40 and not key.get("doubtful")
             book["tests"].append({"test": found["test"], "kind": found["kind"], "pages": [], "parts": [],
                                   "sections": found["sections"],
-                                  "key": _choosable(key["answers"], found) if sure else found["key"],
-                                  "any_order": _merged(key["any_order"] if sure else [], found["any_order"]),
+                                  "key": web_tests.choosable(key["answers"], found) if sure else found["key"],
+                                  "any_order": web_tests.merged(key["any_order"] if sure else [], found["any_order"]),
                                   "content": content})
             continue
         starts = [p["page"] for p in mine["parts"]] + [10 ** 9]
         if len(mine["parts"]) == len(content["parts"]):
             for i, part in enumerate(content["parts"]):
                 part["pages"] = [n for n in mine["pages"] if starts[i] <= n < starts[i + 1]]
-        mine.update(content=content, sections=found["sections"], key=_choosable(mine["key"], found),
-                    any_order=_merged(mine["any_order"], found["any_order"]))
+        mine.update(content=content, sections=found["sections"], key=web_tests.choosable(mine["key"], found),
+                    any_order=web_tests.merged(mine["any_order"], found["any_order"]))
     book["tests"].sort(key=lambda t: (t["kind"], t["test"]))
     return book
-
-
-def _choosable(key: dict[str, str], found: dict) -> dict[str, str]:
-    """The book's key, but where a question is answered with a letter (or a numeral, or TRUE)
-    and the book's answer is not one of the choices shown (OCR read "iii" as "ill", or a word
-    of the next line with the letter), the web page's answer, which is one of them."""
-    key = dict(key)
-    words = {"tfng": ["TRUE", "FALSE", "NOT GIVEN"], "ynng": ["YES", "NO", "NOT GIVEN"]}
-    for part in found["content"]["parts"]:
-        for group in part["groups"]:
-            for q in range(group["first"], group["last"] + 1):
-                own = next((x.get("options") for x in group.get("questions", []) if x["q"] == q), None)
-                choices = words.get(group["type"]) or [o["letter"] for o in own or group["options"]]
-                if group["type"] in ("notes", "table", "gaps") or not choices:
-                    continue
-                if not answer_keys.accepted(key[str(q)]) & {answer_keys.squeezed(c) for c in choices}:
-                    log.debug("%s test %s question %d: the book's key says %r, not a choice: the web page's %r is used",
-                             found.get("slug", ""), found["test"], q, key[str(q)], found["key"][str(q)])
-                    key[str(q)] = found["key"][str(q)]
-    return key
-
-
-def _merged(groups: list[list[int]], more: list[list[int]]) -> list[list[int]]:
-    """Both lists of questions answered in any order, none twice."""
-    return groups + [g for g in more if not any(set(g) & set(old) for old in groups)]
 
 
 def find_test(book_id: str, test: str) -> dict | None:

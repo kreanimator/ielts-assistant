@@ -188,5 +188,9 @@ without any books.
      diagrams included), shown in place of the OCR text, with the printed page one click away.
      The book's own key still marks the test. The Listening questions and transcripts are
      saved too, for milestone 21
-21. Listening from your books: the CD recordings played once, as in the test, with the
-   questions shown and answered the same way as in Reading, answer keys (already read in milestone 20) and band table
+21. ✅ Listening from your books: the CD recordings (imported with `make listening-books`,
+   told apart by their names or their order) played once without pause, as in the test, on
+   the server's clock, with two minutes at the end to check; the questions shown and answered
+   with the same controls as in Reading (their text from `make web-tests`), marked with the
+   answer keys (already read in milestone 20) and given a band from the official Listening
+   table; a marked review with the recordings to hear again and the transcripts

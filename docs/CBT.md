@@ -36,6 +36,11 @@ The frame is `frontend/lib/core/widgets/exam_shell.dart`.
 
 ## Known differences
 
+- Listening: the real test plays an introduction and gives time to read each part's questions
+  inside the recording; ours plays the book's CD recordings, which include those pauses. The
+  real test has no "Check your answers" label; its two minutes at the end are the same. The
+  clock runs on the server from Play, so a reload continues the recording where it is by then.
+
 - Matching headings: the demo drags headings into boxes in the passage; here each question has
   a small list to choose from beside it.
 - A selection to highlight stays inside one paragraph; the questions cannot be highlighted.
