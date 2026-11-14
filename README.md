@@ -12,7 +12,9 @@ per skill:
 - **Reading** (works now): Academic and General Training tests from your own books, shown as
   the books print them beside an answer sheet, 60 minutes on the clock, marked with the books'
   answer keys and given a band from the official table.
-- **Listening** (later).
+- **Listening** (works now): the Listening tests of your own books, their CD recordings played
+  once without pause as in the test, the questions answered on screen, marked with the answer
+  keys and given a band from the official table.
 
 Everything runs on your own computer. No cloud APIs, no accounts, no telemetry.
 
@@ -177,7 +179,8 @@ pages. `make web-tests` reads those pages **for the books you imported, and only
 shows their Reading tests as complete text: every passage, table and picture, each question
 with its control. The printed page stays one click away, and your book's own answer key
 still marks the test (the page's answers are used only where your key could not be read).
-It also saves the Listening questions and transcripts for the Listening module to come.
+It also saves the Listening questions and transcripts, which
+[the Listening test](#the-listening-test) needs.
 
 ```sh
 make web-tests URL=<the address of the site's list of tests>
@@ -331,6 +334,48 @@ and IELTS 13 General Training, 22 tests are offered (12 Academic, 10 General Tra
 them as text.
 
 For trying the app, `READING_TEST_MINUTES=2 make run` shortens the test.
+
+### The Listening test
+
+Choose **Listening** on the dashboard and a test (or any). As in the computer-delivered IELTS,
+a screen says the recording cannot be paused or rewound, and **Play** starts it.
+
+- **The recordings play once.** The four parts follow each other without a stop, the header
+  says "Audio is playing", and each part's questions are shown when its recording starts (the
+  bar at the bottom takes you to any other part). There is a volume slider, and nothing else.
+- **The clock is the recording's, on the server.** Closing the tab or reloading does not pause
+  it: open Listening again, **Continue the test** and press Play, and the recording goes on
+  from where it is by then. What played meanwhile is not played again.
+- **Two minutes to check** when the recordings end ("Check your answers"), then the test is
+  handed in; or press **Hand in** before. Answers are saved every 5 seconds.
+- **The questions** have the same controls as in Reading: gaps inside notes, forms and tables,
+  multiple choice, boxes for "Choose TWO letters", a letter to pick for a map or plan (shown
+  as its picture).
+- **Marked with the answer key**, and the score out of 40 gives the band on the official
+  Listening table (30 right is band 7). The report has the score of each part and every
+  answer; **See and hear the test** opens it again with each question marked, the part's
+  recording to play as often as you like (with 10 seconds back and forward), and what was
+  said, when the test has its transcript.
+
+A Listening test needs two things from you:
+
+```sh
+make listening-books AUDIO='~/Books/IELTS'               # the recordings
+make web-tests URL=<the address of the site's list of tests>   # the questions as text
+```
+
+`make listening-books` looks in that folder for a folder of each imported book (its number in
+the name, "Cambridge IELTS 10") and copies its recordings to `data/private/`. It tells the
+files apart by their names ("Test 3 Section 2", "test1_audio4") or, for CD tracks without
+names, by their order (four parts a test; a CD's short introduction track is skipped); a
+book with one file a test works too. Browsers play MP3 and M4A: WMA files are named and left
+out, so convert them to MP3 first. The questions come from
+[Tests as text from the web](#tests-as-text-from-the-web), because OCR cannot read the forms,
+tables and maps of the Listening pages; a test without them is not offered. Your book's own
+answer key marks the test when it was read for sure, else the web page's answers.
+
+For trying the app, `LISTENING_TEST_SECONDS=30 make run` stops each recording after 30
+seconds (`LISTENING_CHECK_SECONDS` sets the checking time).
 
 ### Drills
 

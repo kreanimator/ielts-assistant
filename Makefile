@@ -27,7 +27,7 @@ else
 endif
 LLAMA_DIR = tools/llama-$(LLAMA_VERSION)-$(LLAMA_BUILD)
 
-.PHONY: install install-esl start setup models app-models llm frontend frontend-dev run books writing-books reading-books web-tests esl-topics license-check \
+.PHONY: install install-esl start setup models app-models llm frontend frontend-dev run books writing-books reading-books listening-books web-tests esl-topics license-check \
 	calibrate-pronunciation calibrate-bands calibrate-writing check-platform
 
 # Everything in one go: Python environment, models, llama.cpp, the web app and the topic
@@ -123,6 +123,14 @@ books:
 # was saved then)
 reading-books:
 	PYTHONPATH=backend $(PYTHON) -m app.reading.books $(or $(BOOKS),--cached)
+
+# Import the recordings of your books' Listening tests (their CDs as MP3 or M4A files):
+#   make listening-books AUDIO='~/Books/IELTS'     the folder that holds a folder for each book,
+#                                                  named with its number ("Cambridge IELTS 10")
+# They are copied to data/private/books/<book>/listening/ (about 100 MB a book). A test also
+# needs its questions as text: see web-tests below.
+listening-books:
+	PYTHONPATH=backend $(PYTHON) -m app.listening.books $(AUDIO)
 
 # Optional, and never run for you: the Reading and Listening tests of the books you imported,
 # as complete text from a website that prints them (OCR loses lines, tables and diagrams).
