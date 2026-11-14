@@ -18,7 +18,7 @@ def now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def deadline(minutes: int) -> str:
+def deadline(minutes: float) -> str:
     return (now() + timedelta(minutes=minutes)).isoformat()
 
 

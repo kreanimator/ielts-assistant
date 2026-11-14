@@ -8,7 +8,14 @@ writing band.
   sample answers in your books with scripts/calibrate_writing.py, see SHIFT).
 - Length: the words are counted here, not by the LLM. An answer under the minimum loses
   Task Achievement / Response (see length_penalty); one under MIN_WORDS gets no band.
-- Corrections: the LLM's, kept only when the words it corrects are really in the answer.
+- Register (Task 1): before it grades a letter, the LLM says who the reader is and which register
+  that calls for (informal, semi-formal or formal), so a letter to a friend is not marked down, or
+  "corrected", for sounding like one.
+- Corrections: the LLM's, each of one kind (KINDS), kept only when the words it corrects are
+  really in the answer. They are shown apart (see sort_out): real errors (grammar, spelling,
+  precision) are marked in the answer; style suggestions, which are correct English that could
+  be more natural, are listed as optional and never marked as errors; task notes say what the
+  task asked for and the answer lacks.
 - A task's band is the average of its four criteria; with both tasks, the writing band counts
   Task 2 twice, as IELTS does: (Task 1 + 2 × Task 2) / 3, rounded like IELTS.
 
@@ -34,7 +41,31 @@ BANDS = [b / 2 for b in range(2, 19)]  # 1.0 .. 9.0
 # bias is +0.04 and the average error 0.62 bands (see the README).
 SHIFT = 0.9
 CRITERIA = ("task_response", "coherence_cohesion", "lexical_resource", "grammar")
-CATEGORIES = ["grammar", "vocabulary", "spelling", "punctuation", "linking", "style"]
+# What a correction is about. Only the first three are errors.
+KINDS = {
+    "G": "grammar",      # a rule of English grammar or punctuation is broken
+    "T": "spelling",     # a spelling or typing mistake
+    "P": "precision",    # the words say something unclear, exaggerated, inconsistent or not meant
+    "S": "style",        # correct English that could be more natural or effective: optional
+    "TA": "task",        # something the task asks for is missing, thin or answered wrongly
+}
+ERRORS = ("G", "T", "P")
+MAX_SUGGESTIONS = 3  # style suggestions shown: more would bury the errors
+# A "grammar error" whose own reason says the words are fine: a preference, so a suggestion.
+PREFERENCE = re.compile(
+    r"\bmore\s+(natural|formal|informal|appropriate|polite|common|idiomatic|polished|elegant|sophisticated|concise|"
+    r"academic|professional|fluent)\b|\bsounds?\b|\b(is|are|while)\s+(\w+\s+)?(understandable|acceptable|"
+    r"grammatically\s+correct|not\s+wrong|correct)\b|\bpreferred\b|\bpreferable\b|\bslightly\b|\bstylistic", re.I)
+REGISTERS = ["informal", "semi-formal", "formal"]
+REGISTER = {
+    "type": "object",
+    "properties": {  # the reader first, so the register follows from it
+        "reader": {"type": "string"},
+        "required": {"type": "string", "enum": REGISTERS},
+        "used": {"type": "string", "enum": REGISTERS},
+    },
+    "required": ["reader", "required", "used"],
+}
 
 CRITERION = {
     "type": "object",
@@ -58,12 +89,12 @@ SCHEMA = {
             "items": {
                 "type": "object",
                 "properties": {
-                    "category": {"type": "string", "enum": CATEGORIES},
+                    "kind": {"type": "string", "enum": list(KINDS)},
                     "original": {"type": "string"},
                     "better": {"type": "string"},
                     "why": {"type": "string"},
                 },
-                "required": ["category", "original", "better", "why"],
+                "required": ["kind", "original", "better", "why"],
             },
         },
         "strengths": {"type": "array", "maxItems": 3, "items": {"type": "string"}},
@@ -72,6 +103,10 @@ SCHEMA = {
     "required": ["task_response", "coherence_cohesion", "lexical_resource", "grammar", "corrections",
                  "strengths", "priorities"],
 }
+
+# A letter's schema: the register is decided before anything is graded.
+LETTER_SCHEMA = {**SCHEMA, "properties": {"register": REGISTER, **SCHEMA["properties"]},
+                 "required": ["register", *SCHEMA["required"]]}
 
 # The band descriptors in brief, in our own words.
 LETTER_TASK = """Task Achievement (Task 1, a letter): call it task_response
@@ -149,7 +184,7 @@ PROMPT = """You are an experienced IELTS Writing examiner. Estimate the candidat
 criteria from the task, the candidate's answer and the measured numbers. Be fair: neither generous
 nor harsh. Pick the band whose description fits best, and judge each criterion on its own (they
 often differ by half a band or more).
-
+{register}
 {task}
 {common}
 
@@ -157,16 +192,64 @@ Rules:
 - The answer was typed by the candidate. Judge only what is written.
 - Never judge or mention the length or the word count: it is counted and handled separately,
   so an answer that seems short must not lose any band for it.{scanned}
+- Bands: judge the whole answer against the descriptions. Never take a fixed amount off for each
+  correction, and never raise or lower a band because of the number of style suggestions.
 - evidence: up to 3 short quotes of the candidate's own words that justify the band (or, for
   Task Achievement / Response, which bullet point or part of the question is covered or missed).
 - summary: one or two sentences, addressed to the candidate ("You ...").
-- corrections: the most important errors, up to 15, in the order they appear. original: the
-  candidate's words copied exactly, as short as possible but long enough to find (2 to 8 words,
-  never a whole sentence); each error only once;
-  better: the corrected words; why: a short reason. Correct only real errors and clearly
-  unnatural phrases, never a correct sentence you would merely write differently.
+- corrections: the most important points, up to 15, in the order they appear; each only once.
+  kind, one of:
+    G  grammar: the words break a rule of English grammar or punctuation. Before you choose G,
+       name the rule to yourself; if you cannot, it is not G.
+    T  spelling: a spelling or typing mistake.
+    P  precision: the words are unclear, exaggerated, inconsistent with the rest, or say
+       something the writer cannot mean.
+    S  style: the words are correct English but could be more natural or effective. Optional:
+       at most 3 in all, only where the gain is clear, and none at all is a good answer. Never
+       suggest wording more formal than the register needs, and never add words only to pad.
+    TA task: something the task asks for is missing, too thin, or answered wrongly.
+  A preference of style is never G: if the words are grammatical but you would put them
+  differently, it is S, or nothing at all. If your reason would be "more natural", "more formal",
+  "more polite" or "more common", it is not G.
+  original: the candidate's words copied exactly, as short as possible but long enough to find
+  (2 to 8 words, never a whole sentence); for TA with nothing to quote, leave it empty.
+  better: the smallest change that fixes it, keeping the writer's meaning and voice (for TA:
+  what to add or change). why: for G, T and P, why it is wrong; for S, what the change gains.
+- Leave alone what is right for the register: {keep}
 - strengths: up to 3 specific things the candidate does well.
 - priorities: up to 3 concrete practice actions for the next answer, most important first."""
+
+# Task 1: the register comes first, and decides what counts as appropriate.
+LETTER_REGISTER = """
+First decide the register this letter needs, from who it is written to (register):
+- reader: who the letter is to, in a few words ("a friend", "a landlord", "a company's manager").
+- required: informal for a friend or a member of the family; semi-formal for someone the writer
+  knows but is not close to, or works with (a neighbour, a colleague, a landlord, a teacher);
+  formal for an organisation, an official, or someone the writer does not know.
+- used: the register the candidate actually wrote in.
+Judge the tone against the required register, not against formal or academic English. In an
+informal letter, conversational English is the right English: do not prefer formal words or
+sentence forms, and do not lower Lexical Resource or Grammar for contractions, phrasal verbs or
+everyday expressions. A letter that is more formal than its reader calls for has the wrong
+tone, just as one that is too casual has. The tone belongs to Task Achievement.
+The usual openings and endings are right and need no change: "Dear Mr Hughes," with "Yours
+sincerely,"; "Dear Sir or Madam," with "Yours faithfully,"; a first name with "Best wishes,",
+"See you soon," or the like.
+"""
+ESSAY_REGISTER = """
+An essay is written in a neutral to formal register.
+"""
+# What must not be "corrected", by the register the task needs.
+KEEP = {
+    "letter": "decide by the register you found. In an informal letter, natural conversational English is right: "
+              'contractions ("I\'m", "don\'t"), phrasal verbs ("catch up", "pop round"), informal linking ("by the '
+              'way", "anyway"), friendly offers and questions ("how about a beer?"), everyday wording ("spent five '
+              'years getting a degree"), and anything said on purpose for effect; none of these is an error or a '
+              "suggestion. In a semi-formal letter, polite everyday English with contractions is right. In a formal "
+              "letter, an informal expression is S (the tone), never G.",
+    "essay": "correct sentences you would merely write differently, and anything said on purpose for effect. An "
+             "informal expression in an essay is S (the tone), never G.",
+}
 
 SCANNED = """
 - The answer was scanned from a printed book and the scan has slips: letters read wrongly
@@ -229,22 +312,61 @@ def find(original: str, answer: str) -> tuple[int, int] | None:
     return match.span() if match else None
 
 
-def keep_corrections(corrections: list[dict], answer: str) -> list[dict]:
+CONTRACTIONS = {"n't": " not", "'m": " am", "'re": " are", "'ve": " have", "'ll": " will", "'d": " would",
+                "'s": " is"}
+
+
+def _uncontracted(text: str) -> str:
+    """"I'm" as "i am", for telling a correction that only spells a contraction out."""
+    text = normalise(text).lower().replace("’", "'").replace("can't", "cannot").replace("won't", "will not")
+    for short, long in CONTRACTIONS.items():
+        text = text.replace(short, long)
+    return re.sub(r"[^a-z ]", "", text)
+
+
+def keep_corrections(corrections: list[dict], answer: str, register: str | None = None) -> list[dict]:
     """The LLM's corrections that can be shown in the answer, in order: the corrected words must
     be in it, at most MAX_CORRECTED words long (not a whole sentence rewritten), and really changed.
     Of corrections that overlap, the shortest is kept (the LLM sometimes repeats one, or rewrites
-    a sentence and also corrects one error in it)."""
+    a sentence and also corrects one error in it). In a letter that is not formal, one that only
+    spells a contraction out ("I'm" → "I am") is dropped: the contraction is right there."""
     found = []
     for c in corrections:
         span = find(c["original"], answer)
-        if (span and word_count(c["original"]) <= MAX_CORRECTED
+        if not (span and word_count(c["original"]) <= MAX_CORRECTED
                 and normalise(c["better"]) != normalise(c["original"])):
-            found.append({**c, "original": answer[span[0]:span[1]], "start": span[0], "end": span[1]})
+            continue
+        if register in ("informal", "semi-formal") and _uncontracted(c["better"]) == _uncontracted(c["original"]) \
+                and c["better"].count("'") + c["better"].count("’") < c["original"].count("'") + c["original"].count("’"):
+            continue
+        found.append({**c, "original": answer[span[0]:span[1]], "start": span[0], "end": span[1]})
     kept = []
     for c in sorted(found, key=lambda c: c["end"] - c["start"]):  # shortest first
         if all(c["end"] <= k["start"] or c["start"] >= k["end"] for k in kept):
             kept.append(c)
     return sorted(kept, key=lambda c: c["start"])
+
+
+def sort_out(judged: list[dict], answer: str, register: str | None = None) -> dict[str, list[dict]]:
+    """The LLM's corrections, each named by its kind (KINDS) and put where it is shown:
+
+    - "corrections": the errors (grammar, spelling, precision), with where they are in the answer
+      ("start", "end"), to be marked there;
+    - "suggestions": style, optional, with their place too but never marked as errors (the first
+      MAX_SUGGESTIONS); a "grammar error" whose reason is a preference ("more natural") is one;
+    - "task_notes": what the task asks for and the answer lacks ("original" may be empty)."""
+    named = []
+    for c in judged:
+        if c.get("kind") not in KINDS:
+            continue
+        kind = "S" if c["kind"] == "G" and PREFERENCE.search(c["why"]) else c["kind"]
+        named.append({**c, "kind": kind, "category": KINDS[kind]})
+    placed = keep_corrections([c for c in named if c["kind"] != "TA"], answer, register)
+    notes = [{k: c[k] for k in ("kind", "category", "original", "better", "why")}
+             for c in named if c["kind"] == "TA" and (c["better"].strip() or c["why"].strip())]
+    return {"corrections": [c for c in placed if c["kind"] in ERRORS],
+            "suggestions": [c for c in placed if c["kind"] == "S"][:MAX_SUGGESTIONS],
+            "task_notes": notes}
 
 
 def normalise(text: str) -> str:
@@ -271,20 +393,24 @@ async def judge(task: dict, answer: str, scanned: bool = False) -> tuple[dict, d
     numbers = "\n".join(f"- {label}: {stats[key]}" for key, label in LABELS.items() if stats[key] is not None)
     if stats["unknown_words"]:
         numbers += f"\n- the words not in our dictionary: {', '.join(stats['unknown_words'])}"
+    letter = task["task"] == 1
     messages = [
-        {"role": "system", "content": PROMPT.format(task=LETTER_TASK if task["task"] == 1 else ESSAY_TASK, common=COMMON,
-                                                    scanned=SCANNED if scanned else "")},
+        {"role": "system", "content": PROMPT.format(
+            task=LETTER_TASK if letter else ESSAY_TASK, common=COMMON, scanned=SCANNED if scanned else "",
+            register=LETTER_REGISTER if letter else ESSAY_REGISTER, keep=KEEP["letter" if letter else "essay"])},
         {"role": "user", "content": f"The task:\n{as_text(task, minimum=False)}\n\nMeasured numbers:\n{numbers}\n\n"
                                     f"The candidate's answer:\n{answer}"},
     ]
-    return stats, await llm.complete_json(messages, SCHEMA, temperature=0.2, max_tokens=3000)
+    schema = LETTER_SCHEMA if letter else SCHEMA
+    return stats, await llm.complete_json(messages, schema, temperature=0.2, max_tokens=3500)
 
 
 async def assess(task: dict, answer: str, scanned: bool = False) -> dict:
     """One task's assessment: its criteria with bands, the corrections, strengths and priorities.
     scanned: the answer is a sample answer from a book (for checking the bands), with scan slips."""
     stats, judged = await judge(task, answer, scanned)
-    corrections = keep_corrections(judged["corrections"], answer)
+    register = judged.get("register")  # a letter's: who it is to, the register needed and the one used
+    sorted_out = sort_out(judged["corrections"], answer, register and register["required"])
     penalty = length_penalty(stats["words"], task["words"])
     bands = corrected({key: judged[key]["band"] for key in CRITERIA}, stats["words"], task["words"])
     criteria = []
@@ -303,7 +429,8 @@ async def assess(task: dict, answer: str, scanned: bool = False) -> dict:
         "length_penalty": penalty,
         "criteria": criteria,
         "band": task_band(bands),
-        "corrections": corrections,
+        "register": register,
+        **sorted_out,
         "strengths": judged["strengths"],
         "priorities": judged["priorities"],
     }
@@ -325,7 +452,8 @@ def unanswered(task: dict, words: int) -> dict:
     criteria = [{"id": key, "name": NAMES[key][task["task"]] if key == "task_response" else NAMES[key],
                  "evidence": [], "summary": summary, "band": band} for key in CRITERIA]
     return {"task": task["task"], "stats": {"words": words, "minimum": task["words"]}, "length_penalty": 0.0,
-            "criteria": criteria, "band": band, "corrections": [], "strengths": [], "priorities": []}
+            "criteria": criteria, "band": band, "register": None, "corrections": [], "suggestions": [], "task_notes": [],
+            "strengths": [], "priorities": []}
 
 
 async def build(session: dict) -> dict:

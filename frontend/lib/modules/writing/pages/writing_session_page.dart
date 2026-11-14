@@ -7,14 +7,19 @@ import '../api.dart';
 import '../widgets/task_card.dart';
 import 'writing_test_page.dart';
 
+/// A correction's colour by what it is about (backend/app/writing/assessor.py, KINDS; the
+/// others are the names older reports used).
 const _categoryColors = {
   'grammar': Color(0xFFC62828),
-  'vocabulary': Color(0xFF1565C0),
   'spelling': Color(0xFFEF6C00),
+  'precision': Color(0xFF1565C0),
+  'style': Color(0xFF558B2F),
+  'task': Color(0xFF6A1B9A),
+  'vocabulary': Color(0xFF1565C0),
   'punctuation': Color(0xFF00838F),
   'linking': Color(0xFF6A1B9A),
-  'style': Color(0xFF558B2F),
 };
+const _registerNames = {'informal': 'Informal', 'semi-formal': 'Semi-formal', 'formal': 'Formal'};
 
 /// One Writing session: the band report, then each task with your answer, its corrections
 /// marked in the text, and the numbers measured.
@@ -164,8 +169,12 @@ class _TaskSection extends StatelessWidget {
     final task = delivery == null ? null : WritingTask.fromJson(delivery['task']);
     final text = message['text'] as String;
     final corrections = [for (final c in assessed?['corrections'] ?? []) c as Map<String, dynamic>];
+    final suggestions = [for (final c in assessed?['suggestions'] ?? []) c as Map<String, dynamic>];
+    final taskNotes = [for (final c in assessed?['task_notes'] ?? []) c as Map<String, dynamic>];
+    final register = assessed?['register'] as Map<String, dynamic>?;
     final stats = assessed?['stats'] as Map<String, dynamic>?;
     final seconds = delivery?['seconds'] as int?;
+    final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -201,14 +210,36 @@ class _TaskSection extends StatelessWidget {
             child: _MarkedText(text: text, corrections: corrections),
           ),
         ),
+        if (register != null) ...[const SizedBox(height: 12), _RegisterNote(register: register)],
         if (corrections.isNotEmpty) ...[
           const SizedBox(height: 16),
           Text('Corrections', style: theme.textTheme.titleMedium),
+          Text(
+            'Errors: grammar, spelling, and wording that does not say what you mean. They are marked in your answer.',
+            style: muted,
+          ),
           const SizedBox(height: 4),
           for (final (i, c) in corrections.indexed) _CorrectionTile(number: i + 1, correction: c),
         ] else if (assessed != null) ...[
           const SizedBox(height: 16),
-          const Text('No corrections: well done.'),
+          const Text('No errors found: well done.'),
+        ],
+        if (taskNotes.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          Text('The task', style: theme.textTheme.titleMedium),
+          Text('What the task asks for and your answer lacks.', style: muted),
+          const SizedBox(height: 4),
+          for (final c in taskNotes) _NoteTile(note: c),
+        ],
+        if (suggestions.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          Text('Optional suggestions', style: theme.textTheme.titleMedium),
+          Text(
+            'These are correct English, not errors, and they do not lower your band: only other ways to say it.',
+            style: muted,
+          ),
+          const SizedBox(height: 4),
+          for (final c in suggestions) _CorrectionTile(number: null, correction: c),
         ],
       ],
     );
@@ -262,7 +293,7 @@ class _MarkedText extends StatelessWidget {
 class _CorrectionTile extends StatelessWidget {
   const _CorrectionTile({required this.number, required this.correction});
 
-  final int number;
+  final int? number; // its number in the answer; null for a suggestion, which is not marked there
   final Map<String, dynamic> correction;
 
   @override
@@ -276,10 +307,15 @@ class _CorrectionTile extends StatelessWidget {
         children: [
           SizedBox(
             width: 28,
-            child: Text(
-              '$number',
-              style: TextStyle(color: color, fontWeight: FontWeight.w700),
-            ),
+            child: number == null
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Icon(Icons.lightbulb_outline, size: 16, color: color),
+                  )
+                : Text(
+                    '$number',
+                    style: TextStyle(color: color, fontWeight: FontWeight.w700),
+                  ),
           ),
           Expanded(
             child: Column(
@@ -290,12 +326,13 @@ class _CorrectionTile extends StatelessWidget {
                     children: [
                       TextSpan(
                         text: correction['original'],
+                        // an error is struck out; a suggestion's words are not wrong
                         style: TextStyle(
-                          decoration: TextDecoration.lineThrough,
+                          decoration: number == null ? null : TextDecoration.lineThrough,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      const TextSpan(text: '   '),
+                      TextSpan(text: number == null ? '   or:  ' : '   '),
                       TextSpan(
                         text: correction['better'],
                         style: const TextStyle(fontWeight: FontWeight.w600),
@@ -307,6 +344,79 @@ class _CorrectionTile extends StatelessWidget {
                   '${correction['category']} · ${correction['why']}',
                   style: theme.textTheme.bodySmall?.copyWith(color: color),
                 ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The register a letter needs (from who it is to) and the one it was written in.
+class _RegisterNote extends StatelessWidget {
+  const _RegisterNote({required this.register});
+
+  final Map<String, dynamic> register;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final required = register['required'] as String?, used = register['used'] as String?;
+    final fits = required == used;
+    final color = fits ? Colors.green.shade700 : theme.colorScheme.error;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(fits ? Icons.check_circle_outline : Icons.error_outline, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            'Register: ${(_registerNames[required] ?? required ?? '').toLowerCase()}, for a letter to '
+            '${register['reader']}. '
+            '${fits ? 'Your letter is ${(_registerNames[used] ?? used ?? '').toLowerCase()}: the right tone, and it '
+                      'was judged as such.' : 'Your letter reads as ${(_registerNames[used] ?? used ?? '').toLowerCase()}: '
+                      'the tone does not fit the reader, which counts in Task Achievement.'}',
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Something the task asks for that the answer lacks.
+class _NoteTile extends StatelessWidget {
+  const _NoteTile({required this.note});
+
+  final Map<String, dynamic> note;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = _categoryColors['task']!;
+    final original = (note['original'] as String? ?? '').trim();
+    final better = (note['better'] as String? ?? '').trim();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 28,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(Icons.assignment_outlined, size: 16, color: color),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (original.isNotEmpty)
+                  Text('"$original"', style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+                if (better.isNotEmpty) Text(better, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text('${note['why']}', style: theme.textTheme.bodySmall?.copyWith(color: color)),
               ],
             ),
           ),
