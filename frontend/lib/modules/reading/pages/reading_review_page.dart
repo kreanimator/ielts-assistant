@@ -22,7 +22,7 @@ class _ReadingReviewPageState extends State<ReadingReviewPage> {
   final Map<int, TextEditingController> _controllers = {};
   final Map<int, GlobalKey> _keys = {};
   int _part = 0;
-  bool _printed = true;
+  late bool _printed = !widget.state.content!.web;
   bool _showQuestions = false;
 
   @override
@@ -55,28 +55,29 @@ class _ReadingReviewPageState extends State<ReadingReviewPage> {
     final passage = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: SegmentedButton<bool>(
-              showSelectedIcon: false,
-              style: const ButtonStyle(visualDensity: VisualDensity.compact),
-              segments: const [
-                ButtonSegment(value: false, label: Text('Text')),
-                ButtonSegment(value: true, label: Text('As printed')),
-              ],
-              selected: {_printed},
-              onSelectionChanged: (s) => setState(() => _printed = s.first),
+        if (part.pages.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SegmentedButton<bool>(
+                showSelectedIcon: false,
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                segments: const [
+                  ButtonSegment(value: false, label: Text('Text')),
+                  ButtonSegment(value: true, label: Text('As printed')),
+                ],
+                selected: {_printed},
+                onSelectionChanged: (s) => setState(() => _printed = s.first),
+              ),
             ),
           ),
-        ),
         Expanded(
           child: PassageView(
             key: PageStorageKey('review-passage-$_part-$_printed'),
             book: state.book,
             part: part,
-            printed: _printed,
+            printed: _printed && part.pages.isNotEmpty,
             textScale: 1,
           ),
         ),

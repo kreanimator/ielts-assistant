@@ -18,6 +18,11 @@ build() reads the OCR lines of a test's pages (core/layout.py) and its answer ke
              "printed": False,                              # True: show the pictures instead
              "pictures": [{"page": 90, "box": [x0, y0, x1, y1]}]}  # the printed group (fractions of the page)
 
+    A test saved from a web page (core/web_tests.py: "source": "web" beside "parts") has two more:
+    TYPE "table", with "table": [[{"head": bool, "span": 1, "pieces": ["text ", 9, " more"]}, ...], ...]
+    (rows of cells, text and gaps), and "images": ["name.png"], a group's map, plan or diagram
+    (/api/reading/pictures/<name>). A paragraph of its passages may hold line breaks.
+
     TYPE, the control of each question: "tfng" | "ynng" (buttons), "choice" (each question its
     options), "multi" (choose TWO or more letters for several questions), "match" (a letter from
     the options for each question), "gaps" (a word or two for each question), "notes" (gaps

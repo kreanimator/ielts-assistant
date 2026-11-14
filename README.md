@@ -169,6 +169,33 @@ from the pages read then, without the PDFs (but handwriting can only be read wit
 Before Reading was added? `make reading-books BOOKS='~/Books/IELTS/*.pdf'` adds their Reading
 tests (it needs the PDFs once, for the pages' pictures and the answer keys, but not the LLM).
 
+### Tests as text from the web
+
+OCR of a scanned book loses lines, and cannot read tables, maps and diagrams, so many tests
+are shown as their printed pages or are left out. Some websites print the same tests as web
+pages. `make web-tests` reads those pages **for the books you imported, and only those**, and
+shows their Reading tests as complete text: every passage, table and picture, each question
+with its control. The printed page stays one click away, and your book's own answer key
+still marks the test (the page's answers are used only where your key could not be read).
+It also saves the Listening questions and transcripts for the Listening module to come.
+
+```sh
+make web-tests URL=<the address of the site's list of tests>
+```
+
+This is optional and never runs by itself: no address is built in, `make install` does not
+call it, and the app fetches nothing while it runs. Before you use it:
+
+- **Read the site's terms.** Most such sites forbid automated copying, and the tests belong
+  to their publisher. Whether to go ahead is your decision and your responsibility.
+- It is for books you own, for your own study. Nothing it saves may be shared or committed:
+  it all stays in `data/private/` (the pages in `data/private/web/`).
+- It asks for one page every 3 seconds (`WEB_TESTS_DELAY`), and each page only once.
+
+The pages it understands are laid out like `ieltsvault.com/resources`. A page it cannot
+read for sure, or whose answers differ from your book's key, is left out and named.
+`make web-tests` without `URL` parses the saved pages again.
+
 ### The full exam
 
 **Full exam** runs Parts 1, 2 and 3 in about 14 minutes, timed like the real test:

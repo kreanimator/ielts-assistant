@@ -107,7 +107,8 @@ class _Group extends StatelessWidget {
             for (final p in g.pictures) _Printed(book: book, page: p.page, box: p.box),
           ],
           const SizedBox(height: 8),
-          if (listed.isNotEmpty && g.type == 'match') _OptionList(listed),
+          for (final name in g.images) _Picture(name),
+          if (listed.isNotEmpty && (g.type == 'match' || g.type == 'notes')) _OptionList(listed),
           ...switch (g.type) {
             'tfng' ||
             'ynng' => [for (final q in g.questions) _Statement(group: g, q: q.q, text: q.text, access: access)],
@@ -117,6 +118,7 @@ class _Group extends StatelessWidget {
             'multi' => [_Multi(group: g, access: access)],
             'match' => [for (final q in g.questions) _Match(group: g, q: q.q, text: q.text, access: access)],
             'notes' when !g.printed => [_Notes(group: g, access: access)],
+            'table' when !g.printed => [_NotesTable(group: g, access: access)],
             _ => [for (final q in g.questions) _GapLine(q: q.q, text: q.text, access: access)],
           },
         ],
@@ -146,6 +148,29 @@ class _Printed extends StatelessWidget {
         filterQuality: FilterQuality.medium,
         errorBuilder: (context, error, stack) =>
             const Padding(padding: EdgeInsets.all(12), child: Text('This part of the page could not be loaded.')),
+      ),
+    );
+  }
+}
+
+/// A group's map, plan or diagram.
+class _Picture extends StatelessWidget {
+  const _Picture(this.name);
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      constraints: const BoxConstraints(maxWidth: 640),
+      color: Colors.white, // the pictures are drawn on white
+      child: Image.network(
+        groupPicture(name),
+        fit: BoxFit.fitWidth,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (context, error, stack) =>
+            const Padding(padding: EdgeInsets.all(12), child: Text('This picture could not be loaded.')),
       ),
     );
   }
@@ -453,7 +478,10 @@ class _Match extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 8),
                 decoration: BoxDecoration(
                   color: letters.contains(value) ? p.chosen : null,
-                  border: Border.all(color: access.current == q ? p.current : p.control, width: access.current == q ? 2 : 1),
+                  border: Border.all(
+                    color: access.current == q ? p.current : p.control,
+                    width: access.current == q ? 2 : 1,
+                  ),
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: DropdownButton<String>(
@@ -463,7 +491,12 @@ class _Match extends StatelessWidget {
                   underline: const SizedBox.shrink(),
                   iconSize: 20,
                   dropdownColor: p.background,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: p.text, fontFamily: 'LiberationSans'),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: p.text,
+                    fontFamily: 'LiberationSans',
+                  ),
                   onTap: () => access.onFocus?.call(q),
                   onChanged: access.readOnly ? null : (v) => access.choose(q, v ?? ''),
                   items: [
@@ -483,10 +516,11 @@ class _Match extends StatelessWidget {
 
 /// A box to type a word or two in.
 class _Gap extends StatelessWidget {
-  const _Gap(this.q, this.access);
+  const _Gap(this.q, this.access, {this.width = 150});
 
   final int q;
   final AnswerAccess access;
+  final double width; // narrower in a table's cell
 
   @override
   Widget build(BuildContext context) {
@@ -501,7 +535,7 @@ class _Gap extends StatelessWidget {
     );
     return SizedBox(
       key: access.keyOf(q),
-      width: 150,
+      width: width,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -607,6 +641,89 @@ class _Notes extends StatelessWidget {
           for (final q in group.numbers) _KeyNote(q, access),
         ],
       ),
+    );
+  }
+}
+
+/// A table of notes, with its gaps in their cells.
+class _NotesTable extends StatelessWidget {
+  const _NotesTable({required this.group, required this.access});
+
+  final QuestionGroup group;
+  final AnswerAccess access;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = ExamStyle.of(context);
+    final columns = group.table.fold<int>(0, (most, row) {
+      final width = row.fold<int>(0, (sum, c) => sum + c.span);
+      return width > most ? width : most;
+    });
+    final edge = BorderSide(color: p.border);
+
+    Widget cell(NotesCell c) => Container(
+      decoration: BoxDecoration(
+        border: Border(right: edge, bottom: edge),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            for (final piece in c.pieces)
+              if (piece is int)
+                WidgetSpan(alignment: PlaceholderAlignment.middle, child: _Gap(piece, access, width: 116))
+              else
+                TextSpan(text: piece as String),
+          ],
+        ),
+        style: TextStyle(height: 2.0, fontWeight: c.head ? FontWeight.w700 : null),
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // as wide as the panel, but wide enough for a gap in every column (then it scrolls sideways)
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth < columns * 136.0 ? columns * 136.0 : constraints.maxWidth;
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Container(
+                width: width,
+                decoration: BoxDecoration(
+                  border: Border(left: edge, top: edge),
+                ),
+                child: Column(
+                  children: [
+                    for (final row in group.table)
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (final c in row) Expanded(flex: c.span, child: cell(c)),
+                            // a short row: an empty cell to the table's edge
+                            if (row.fold<int>(0, (sum, c) => sum + c.span) < columns)
+                              Expanded(
+                                flex: columns - row.fold<int>(0, (sum, c) => sum + c.span),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    border: Border(right: edge, bottom: edge),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 4),
+        for (final q in group.numbers) _KeyNote(q, access),
+      ],
     );
   }
 }

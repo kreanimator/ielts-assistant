@@ -27,7 +27,7 @@ else
 endif
 LLAMA_DIR = tools/llama-$(LLAMA_VERSION)-$(LLAMA_BUILD)
 
-.PHONY: install install-esl start setup models app-models llm frontend frontend-dev run books writing-books reading-books esl-topics license-check \
+.PHONY: install install-esl start setup models app-models llm frontend frontend-dev run books writing-books reading-books web-tests esl-topics license-check \
 	calibrate-pronunciation calibrate-bands calibrate-writing check-platform
 
 # Everything in one go: Python environment, models, llama.cpp, the web app and the topic
@@ -123,6 +123,14 @@ books:
 # was saved then)
 reading-books:
 	PYTHONPATH=backend $(PYTHON) -m app.reading.books $(or $(BOOKS),--cached)
+
+# Optional, and never run for you: the Reading and Listening tests of the books you imported,
+# as complete text from a website that prints them (OCR loses lines, tables and diagrams).
+#   make web-tests URL=<the address of the site's list of tests>
+# Read the site's terms first: see "Tests as text from the web" in the README. Without URL it
+# parses again the pages saved before. Everything stays in data/private/.
+web-tests:
+	PYTHONPATH=backend $(PYTHON) -m app.core.web_tests $(or $(URL),--cached)
 
 # Import the Writing tests from the books imported before, from their saved page texts (no
 # PDFs needed; without them, answers printed in handwriting cannot be read with OCR).

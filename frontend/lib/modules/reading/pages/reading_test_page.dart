@@ -63,7 +63,9 @@ class _ReadingTestPageState extends State<ReadingTestPage> {
   Timer? _tick, _autosave;
   bool _ending = false;
   bool _showQuestions = false; // on a narrow screen: the questions instead of the passage
-  bool _printed = true; // the passage as the book prints it (the text is still rough: an option)
+  // The passage as the book prints it: first when the text is OCR's (still rough), an option
+  // when the text was saved from the web (complete).
+  late bool _printed = !(widget.state.content?.web ?? false);
   int _part = 0;
   int? _current; // the question being worked on (framed in blue)
   bool _notesOpen = false;
@@ -292,27 +294,28 @@ class _ReadingTestPageState extends State<ReadingTestPage> {
     final passage = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: palette.muted,
-                visualDensity: VisualDensity.compact,
-                textStyle: const TextStyle(fontSize: 13),
+        if (part.pages.isNotEmpty) // a test saved from the web only has no printed pages
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: palette.muted,
+                  visualDensity: VisualDensity.compact,
+                  textStyle: const TextStyle(fontSize: 13),
+                ),
+                onPressed: () => setState(() => _printed = !_printed),
+                child: Text(_printed ? 'Show as text' : 'Show the printed page'),
               ),
-              onPressed: () => setState(() => _printed = !_printed),
-              child: Text(_printed ? 'Show as text' : 'Show the printed page'),
             ),
           ),
-        ),
         Expanded(
           child: PassageView(
             key: PageStorageKey('passage-$_part-$_printed'),
             book: state.book,
             part: part,
-            printed: _printed,
+            printed: _printed && part.pages.isNotEmpty,
             textScale: scale,
             marks: _marks,
             onNote: (mark) => setState(() {

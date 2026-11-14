@@ -28,12 +28,20 @@ String pagePicture(String book, int page) => apiUri('/api/reading/pages/$book/$p
 String cropPicture(String book, int page, List<double> box) =>
     apiUri('/api/reading/crops/$book/$page.jpg').replace(queryParameters: {'box': box.join(',')}).toString();
 
+/// A picture of a group of questions saved from the web (a map, a plan, a diagram).
+String groupPicture(String name) => apiUri('/api/reading/pictures/$name').toString();
+
 /// The test as text, like the computer-delivered test (backend/app/reading/content.py).
 class ReadingContent {
   ReadingContent.fromJson(Map<String, dynamic> json)
-    : parts = [for (final p in json['parts']) ReadingPartText.fromJson(p)];
+    : parts = [for (final p in json['parts']) ReadingPartText.fromJson(p)],
+      web = json['source'] == 'web';
 
   final List<ReadingPartText> parts;
+
+  /// Saved from a web page (backend/app/core/web_tests.py): complete text, so it is shown
+  /// first; OCR text is rough, so the printed page is.
+  final bool web;
 }
 
 class ReadingPartText {
@@ -67,8 +75,11 @@ List<ReadingOption> _options(dynamic list) => [
   for (final o in list ?? []) (letter: o['letter'] as String, text: (o['text'] ?? '') as String),
 ];
 
+/// A cell of a table of notes: text (String) and gaps (int: the question).
+typedef NotesCell = ({bool head, int span, List<Object> pieces});
+
 /// Questions first..last with one kind of control: "tfng", "ynng", "choice", "multi", "match",
-/// "gaps" or "notes". When `printed`, their text is shown as the pictures of the page.
+/// "gaps", "notes" or "table". When `printed`, their text is shown as the pictures of the page.
 class QuestionGroup {
   QuestionGroup.fromJson(Map<String, dynamic> json)
     : first = json['first'],
@@ -83,6 +94,14 @@ class QuestionGroup {
           (q: q['q'] as int, text: (q['text'] ?? '') as String, options: _options(q['options'])),
       ],
       notes = [for (final line in json['notes'] ?? []) List<Object>.from(line)],
+      table = [
+        for (final row in json['table'] ?? [])
+          [
+            for (final c in row)
+              (head: c['head'] == true, span: (c['span'] ?? 1) as int, pieces: List<Object>.from(c['pieces'])),
+          ],
+      ],
+      images = List<String>.from(json['images'] ?? []),
       pictures = [
         for (final p in json['pictures'] ?? [])
           (page: p['page'] as int, box: [for (final v in p['box']) (v as num).toDouble()]),
@@ -95,6 +114,8 @@ class QuestionGroup {
   final List<ReadingOption> options;
   final List<({int q, String text, List<ReadingOption> options})> questions;
   final List<List<Object>> notes; // lines of text (String) and gaps (int: the question)
+  final List<List<NotesCell>> table; // "table": its rows
+  final List<String> images; // a map, a plan or a diagram (groupPicture)
   final List<({int page, List<double> box})> pictures;
 
   Iterable<int> get numbers sync* {

@@ -6,6 +6,8 @@
                               a page of a test, as the book prints it
   GET  /api/reading/crops/<book>/<page>.jpg?box=x0,y0,x1,y1
                               a part of it (fractions of the page): a group of questions as printed
+  GET  /api/reading/pictures/<name>
+                              a picture of a group of questions saved from the web (a group's "images")
 
 The test (see test.py), timed on the server:
   POST /api/reading/tests     {"book": "<id>", "test": "2"}, or {"kind": "academic"} (or nothing) for a
@@ -25,7 +27,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
-from ..core import modules
+from ..core import modules, web_tests
 from . import books, test
 
 router = APIRouter()
@@ -61,6 +63,15 @@ def page_crop(book_id: str, page: int, box: str):
     if picture is None:
         raise HTTPException(404, "No such page")
     return Response(picture, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=86400"})
+
+
+@router.get("/api/reading/pictures/{name}")
+def group_picture(name: str):
+    """A picture of a group of questions saved from the web (a map, a plan, a diagram)."""
+    picture = web_tests.image_file(name)
+    if picture is None:
+        raise HTTPException(404, "No such picture")
+    return FileResponse(picture, headers={"Cache-Control": "private, max-age=86400"})
 
 
 class TestStart(BaseModel):
