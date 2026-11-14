@@ -183,5 +183,10 @@ without any books.
    cannot be read for sure shown as its part of the page. The keys are read three times at
    different sizes (an answer counts when two agree), and a test is offered only when all 40
    answers were read for sure and each letter is one of its question's choices
+   - Optional (`make web-tests URL=...`, never run by itself, no address built in): the tests
+     of the imported books as complete text from a website that prints them (tables, maps and
+     diagrams included), shown in place of the OCR text, with the printed page one click away.
+     The book's own key still marks the test. The Listening questions and transcripts are
+     saved too, for milestone 21
 21. Listening from your books: the CD recordings played once, as in the test, with the
    questions shown and answered the same way as in Reading, answer keys (already read in milestone 20) and band table
