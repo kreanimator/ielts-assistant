@@ -235,7 +235,9 @@ class _TaskSection extends StatelessWidget {
           const SizedBox(height: 20),
           Text('Optional suggestions', style: theme.textTheme.titleMedium),
           Text(
-            'These are correct English, not errors, and they do not lower your band: only other ways to say it.',
+            register != null && register['required'] != register['used']
+                ? 'These are correct English, not errors: ways to say it that fit the reader better.'
+                : 'These are correct English, not errors, and they do not lower your band: only other ways to say it.',
             style: muted,
           ),
           const SizedBox(height: 4),

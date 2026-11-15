@@ -6,6 +6,8 @@ writing band.
   the measured numbers, and must quote evidence before it gives each band.
 - Correction: the LLM judges too harshly, so SHIFT is added to each of its bands (fitted on the
   sample answers in your books with scripts/calibrate_writing.py, see SHIFT).
+  A letter in the opposite register (formal to a friend, casual to a company) gets at most
+  WRONG_REGISTER_CAP for Task Achievement.
 - Length: the words are counted here, not by the LLM. An answer under the minimum loses
   Task Achievement / Response (see length_penalty); one under MIN_WORDS gets no band.
 - Register (Task 1): before it grades a letter, the LLM says who the reader is and which register
@@ -37,9 +39,10 @@ BANDS = [b / 2 for b in range(2, 19)]  # 1.0 .. 9.0
 # Added to each of the LLM's bands. Fitted with scripts/calibrate_writing.py on 36 sample answers
 # in the Cambridge books (one examiner band per answer, so one shift for all four criteria; shift
 # only, as in Speaking: a slope would stretch the bands beyond what the samples cover).
-# Uncorrected, the LLM was 0.86 bands too low; with the shift fitted without each answer, the
-# bias is +0.04 and the average error 0.62 bands (see the README).
-SHIFT = 0.9
+# Uncorrected, the LLM is 0.75 bands too low; with the shift fitted without each answer, the
+# bias is +0.06 and the average error 0.58 bands (see the README). Fit it again after any change
+# to the prompt (make calibrate-writing ARGS=--rejudge): the register prompt moved it from 0.9.
+SHIFT = 0.8
 CRITERIA = ("task_response", "coherence_cohesion", "lexical_resource", "grammar")
 # What a correction is about. Only the first three are errors.
 KINDS = {
@@ -50,7 +53,12 @@ KINDS = {
     "TA": "task",        # something the task asks for is missing, thin or answered wrongly
 }
 ERRORS = ("G", "T", "P")
+# A letter written in the opposite register (formal to a friend, casual to a company) cannot get
+# more than this for Task Achievement: the descriptors put a tone that is wrong for the reader
+# at band 5 and a tone that varies at band 6. Our reading of them, like the length penalty.
+WRONG_REGISTER_CAP = 5.5
 MAX_SUGGESTIONS = 3  # style suggestions shown: more would bury the errors
+MAX_TASK_NOTES = 3
 # A "grammar error" whose own reason says the words are fine: a preference, so a suggestion.
 PREFERENCE = re.compile(
     r"\bmore\s+(natural|formal|informal|appropriate|polite|common|idiomatic|polished|elegant|sophisticated|concise|"
@@ -366,7 +374,7 @@ def sort_out(judged: list[dict], answer: str, register: str | None = None) -> di
              for c in named if c["kind"] == "TA" and (c["better"].strip() or c["why"].strip())]
     return {"corrections": [c for c in placed if c["kind"] in ERRORS],
             "suggestions": [c for c in placed if c["kind"] == "S"][:MAX_SUGGESTIONS],
-            "task_notes": notes}
+            "task_notes": notes[:MAX_TASK_NOTES]}
 
 
 def normalise(text: str) -> str:
@@ -380,6 +388,12 @@ def corrected(llm_bands: dict[str, float], words: int, minimum: int, shift: floa
     penalty = length_penalty(words, minimum)
     return {key: min(9.0, max(1.0, band + shift - (penalty if key == "task_response" else 0.0)))
             for key, band in llm_bands.items()}
+
+
+def opposite_register(register: dict | None) -> bool:
+    """The letter needed an informal register and is formal, or the other way round (a
+    semi-formal letter is next to both, and the LLM cannot tell those apart for sure)."""
+    return bool(register) and {register.get("required"), register.get("used")} == {"informal", "formal"}
 
 
 def task_band(bands: dict[str, float]) -> float:
@@ -413,6 +427,9 @@ async def assess(task: dict, answer: str, scanned: bool = False) -> dict:
     sorted_out = sort_out(judged["corrections"], answer, register and register["required"])
     penalty = length_penalty(stats["words"], task["words"])
     bands = corrected({key: judged[key]["band"] for key in CRITERIA}, stats["words"], task["words"])
+    capped = opposite_register(register) and bands["task_response"] > WRONG_REGISTER_CAP
+    if capped:
+        bands["task_response"] = WRONG_REGISTER_CAP
     criteria = []
     for key in CRITERIA:
         c = judged[key]
@@ -421,6 +438,10 @@ async def assess(task: dict, answer: str, scanned: bool = False) -> dict:
         if key == "task_response" and penalty:
             evidence = [f"{stats['words']} words, under the minimum of {task['words']}: "
                         f"{penalty:g} band{'s' if penalty > 1 else ''} off."] + evidence
+        if key == "task_response" and capped:
+            evidence = [f"Written in {_a(register['used'])} register to {register['reader']}, who needs "
+                        f"{_a(register['required'])} one: the tone is wrong for the reader, so no more than "
+                        f"band {WRONG_REGISTER_CAP:g} here."] + evidence
         criteria.append({"id": key, "name": name, "evidence": evidence, "summary": c["summary"],
                          "llm_band": c["band"], "band": bands[key]})
     return {
@@ -434,6 +455,10 @@ async def assess(task: dict, answer: str, scanned: bool = False) -> dict:
         "strengths": judged["strengths"],
         "priorities": judged["priorities"],
     }
+
+
+def _a(register: str) -> str:
+    return f"an {register}" if register[0] in "aeiou" else f"a {register}"
 
 
 def writing_band(task_bands: dict[int, float]) -> float:

@@ -262,8 +262,21 @@ in the browser as a draft until you finish, so a reload does not lose it.
 - a band for **Task Achievement** (letters) or **Task Response** (essays), **Coherence and
   Cohesion**, **Lexical Resource** and **Grammatical Range and Accuracy**, each with quotes
   from your answer, and the task's band (their average, rounded like IELTS);
-- **corrections** underlined in your text (grammar, vocabulary, spelling, punctuation,
-  linking, style), each with the better words and why;
+- for a letter, its **register**: who the letter is to, the register that calls for
+  (informal for a friend or family, semi-formal for someone you know or work with, formal for
+  an organisation or a stranger) and the one you wrote in. The letter is judged against that
+  register, not against formal English: in a letter to a friend, contractions, phrasal verbs
+  and "by the way" are the right English and are neither marked down nor "corrected". A
+  letter in the opposite register (formal to a friend, casual to a company) gets no more
+  than band 5.5 for Task Achievement;
+- **corrections**, each of one kind and shown apart:
+  - errors, underlined in your text with the smallest change that fixes each and why it is
+    wrong: **grammar** (a rule is broken), **spelling**, and **precision** (the words are
+    unclear, exaggerated or say what you cannot mean);
+  - **the task**: what it asks for and your answer lacks;
+  - **optional suggestions** (at most three): correct English that could be more natural.
+    They are not marked in your text and do not lower your band. A "grammar error" whose
+    only reason is that something sounds more natural or more formal is moved here;
 - the numbers: words, paragraphs, words per sentence, the time you took.
 
 The words are counted by the app, not by the AI. An answer under the minimum loses half a
@@ -442,13 +455,14 @@ garbled by OCR (the script lists each with the reason).
 
 | | Average difference | Average error | Within ½ band | Within 1 band | Correlation |
 |---|---|---|---|---|---|
-| The LLM's bands as they are | 0.86 too low | 0.94 | 44% | 69% | 0.69 |
-| With the correction (+0.9 on each criterion), each answer scored by a correction fitted without it | +0.04 | 0.62 | 67% | 92% | 0.67 |
+| The LLM's bands as they are | 0.75 too low | 0.81 | 53% | 72% | 0.73 |
+| With the correction (+0.8 on each criterion), each answer scored by a correction fitted without it | +0.06 | 0.58 | 69% | 92% | 0.70 |
 
 Limits to keep in mind:
 
 - 36 answers is few, and most are Task 2 essays (25; 11 letters). The books give one band per
-  answer, so one correction is used for all four criteria.
+  answer, so one correction is used for all four criteria. With it the 11 letters come out
+  about half a band high on average and the essays 0.2 low.
 - As in Speaking, the extremes are pulled toward the middle: answers the examiners gave 5 come
   out about 1 band too high, those they gave 7.5 or 8 about 1 band too low.
 - The books' answers are scans with OCR slips; the LLM is told to ignore them when checking,
