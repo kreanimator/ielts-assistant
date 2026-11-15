@@ -122,6 +122,8 @@ class Session extends ChangeNotifier {
   String? partTitle; // e.g. "Part 2 · Long turn"
   CueCard? cueCard; // shown from the Part 2 card until the next part
   Countdown? countdown;
+  bool manual = false; // "press to speak": you press Speak and Send; no pause ends your answer
+  String notice = ''; // why it is still your turn, e.g. no words were heard in what you sent
 
   /// Called with the session id when a session with answers has been saved.
   void Function(String id)? onEnded;
@@ -129,6 +131,7 @@ class Session extends ChangeNotifier {
   web.WebSocket? _ws;
   bool _micOpen = false; // closed while the examiner speaks, so it can't hear itself
   Timer? _turnTimer;
+  int? _turn; // the examiner turn you are answering
 
   bool get active => phase != Phase.idle && phase != Phase.error && phase != Phase.ending;
 
@@ -147,7 +150,10 @@ class Session extends ChangeNotifier {
     String? drill,
     String? esl,
     String? level,
+    int? silenceMs, // the pause that ends an answer; null: the backend's own
+    bool manual = false,
   }) async {
+    this.manual = manual;
     messages.clear();
     partial = '';
     id = null;
@@ -175,6 +181,8 @@ class Session extends ChangeNotifier {
           'drill': drill,
           'esl': esl,
           'level': level,
+          'silence_ms': silenceMs,
+          'manual': manual,
         }).toJS,
       );
     }).toJS;
@@ -196,6 +204,26 @@ class Session extends ChangeNotifier {
   /// Part 2 practice: start the talk before the preparation minute is over.
   void skipPreparation() {
     if (phase == Phase.preparing && cueCard?.skippable == true) _send({'type': 'skip'});
+  }
+
+  /// Press to speak: start recording your answer.
+  void speak() {
+    if (!manual || phase != Phase.yourTurn) return;
+    _openMic();
+    _setPhase(Phase.hearing);
+  }
+
+  /// Your answer is finished: send what you have said, without waiting for a pause.
+  void finishAnswer() {
+    if (phase != Phase.hearing) return;
+    _micOpen = false;
+    _send({'type': 'done', 'turn': _turn});
+    _setPhase(Phase.thinking);
+  }
+
+  void _openMic() {
+    _micOpen = true;
+    _send({'type': 'mic', 'turn': _turn}); // the backend listens from here on
   }
 
   void _send(Map<String, dynamic> message) {
@@ -255,8 +283,8 @@ class Session extends ChangeNotifier {
         // Open the mic only after the queued speech has finished playing.
         final turn = message['turn'];
         _turnTimer = Timer(BrowserAudio.remaining + const Duration(milliseconds: 300), () {
-          _micOpen = true;
-          _send({'type': 'mic', 'turn': turn}); // the backend listens from here on
+          _turn = turn;
+          if (!manual) _openMic(); // press to speak: the Speak button opens it
           _setPhase(Phase.yourTurn);
         });
       case 'part':
@@ -282,6 +310,12 @@ class Session extends ChangeNotifier {
         _setPhase(Phase.thinking);
       case 'listening':
         _setPhase(Phase.hearing);
+      case 'nothing_heard' when phase == Phase.thinking: // you sent an answer without words
+        partial = '';
+        if (!manual) _micOpen = true;
+        phase = Phase.yourTurn;
+        notice = 'No words were heard. Please try again.';
+        notifyListeners();
       case 'partial':
         partial = message['text'];
         notifyListeners();
@@ -322,6 +356,7 @@ class Session extends ChangeNotifier {
 
   void _setPhase(Phase value) {
     phase = value;
+    notice = '';
     notifyListeners();
   }
 }

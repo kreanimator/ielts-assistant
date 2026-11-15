@@ -11,13 +11,17 @@ HTTP:
 WebSocket protocol on /ws/speaking:
   client → server  JSON  {"type": "start", "mode": "part1", "voice": "bf_emma", "topic": "travel",
                           "book": "cambridge-ielts-08", "test": 2, "drill": "sound:θ",
-                          "esl": "advice", "level": "mixed"}
+                          "esl": "advice", "level": "mixed", "silence_ms": 2500, "manual": false}
                          (all optional; mode is one of /api/speaking/options "modes"; book and test pick
                           a real test's questions instead of a topic, for every mode but free;
                           esl and level pick the topic card in the "letter" mode, level is
-                          mixed or one of esl.LEVELS)
-                   JSON  {"type": "mic", "turn": 3}                 mic opened after examiner_done turn 3;
+                          mixed or one of esl.LEVELS; silence_ms: the pause that ends an answer;
+                          manual: "press to speak", no pause ends an answer, only "done" does)
+                   JSON  {"type": "mic", "turn": 3}                 mic opened after examiner_done turn 3
+                                                                    (manual: when Speak is pressed);
                                                                     audio before it is ignored
+                   JSON  {"type": "done", "turn": 3}                the answer is finished: take what was
+                                                                    said so far, without waiting for a pause
                    bytes PCM16 mono 16 kHz microphone audio, any chunk size
                    JSON  {"type": "skip"}                           Part 2 practice: end the preparation now
                    JSON  {"type": "end"}                            finish: wait for pending feedback, then close
@@ -25,6 +29,8 @@ WebSocket protocol on /ws/speaking:
                    JSON  {"type": "listening"}                      the candidate started speaking
                    JSON  {"type": "partial", "text": "..."}         live transcript while they speak
                    JSON  {"type": "transcript", "text": "..."}      the finished answer
+                   JSON  {"type": "nothing_heard"}                  "done" came, but no words were said:
+                                                                    the turn goes on
                    JSON  {"type": "examiner", "text": "...", "new": true}   one sentence of the reply;
                                                                     new: it starts a new examiner message
                    bytes PCM16 mono 24 kHz speech for that sentence
@@ -157,7 +163,11 @@ async def session(ws: WebSocket):
         if card:
             topic = card["name"]
         session_id = storage.create_session("speaking", mode, topic, voice, await llm.model_name())
-        talk = Talk(ws, session_id, voice)
+        silence_ms = start.get("silence_ms")
+        if not isinstance(silence_ms, int) or isinstance(silence_ms, bool):
+            silence_ms = config.END_OF_TURN_SILENCE_MS
+        silence_ms = min(max(silence_ms, config.MIN_SILENCE_MS), config.MAX_SILENCE_MS)
+        talk = Talk(ws, session_id, voice, silence_ms, manual=start.get("manual") is True)
         await ws.send_json({"type": "ready", "session": session_id})
         try:
             await exam.run(talk, mode, examiner_name(voice), topic, test, drill, card)
@@ -182,10 +192,16 @@ class Talk:
 
     The mic is gated by turns: after each examiner_done (turn n) the client opens its mic
     and sends {"type": "mic", "turn": n}. Audio before that is ignored, so speech from an
-    answer that was cut off can never leak into the next one."""
+    answer that was cut off can never leak into the next one.
 
-    def __init__(self, ws: WebSocket, session_id: str, voice: str):
+    An answer ends after a pause of silence_ms, or when the client says "done". With manual
+    ("press to speak") only "done" ends it: everything from "mic" to "done" is the answer."""
+
+    def __init__(self, ws: WebSocket, session_id: str, voice: str,
+                 silence_ms: int = config.END_OF_TURN_SILENCE_MS, manual: bool = False):
         self.ws, self.session_id, self.voice = ws, session_id, voice
+        self.silence_ms, self.manual = silence_ms, manual
+        self.recorded = None  # manual: the audio chunks of the answer, once speech has started
         self.tasks = set()  # feedback still being worked out
         self.answers = 0
         self.turn = 0  # examiner turns that handed over to the candidate
@@ -195,7 +211,7 @@ class Talk:
         self.analyse_answers = True  # off for sound drills: reading aloud needs no grammar feedback
         self.focus = None  # a language drill's focus, for the analyst
         self.target = None  # a sound drill's sound, for the pronunciation check
-        self.turns = TurnDetector(config.END_OF_TURN_SILENCE_MS)
+        self.turns = TurnDetector(silence_ms)
 
     def in_background(self, work):
         task = asyncio.create_task(work)
@@ -319,10 +335,12 @@ class Talk:
 
         cut_at (time.monotonic()) and limit (seconds after the mic opens) end the answer
         where it is; if nothing was said by then, returns None. silence_ms: the pause that
-        ends the answer (longer in the Part 2 talk, where people stop to think)."""
+        ends the answer when it is longer than the session's own (the Part 2 talk, where
+        people stop to think)."""
         self.was_cut = False
         self.turns.reset()
-        self.turns.set_silence(silence_ms or config.END_OF_TURN_SILENCE_MS)
+        self.turns.set_silence(max(silence_ms or 0, self.silence_ms))
+        self.recorded = None
         mic_open = False
         partial, last_partial = None, 0.0
         while True:
@@ -330,23 +348,52 @@ class Talk:
             if message is None:  # time is up
                 if partial:
                     await partial
-                heard = self.turns.current()
+                heard = self.heard()
                 if heard is None or len(heard) < SAMPLE_RATE // 2:
                     await self.ws.send_json({"type": "time_up"})
                     return None
                 self.was_cut = True
                 return await self.hear(question, heard)
             if "json" in message:
-                if message["json"].get("type") == "mic" and message["json"].get("turn") == self.turn:
+                kind = message["json"].get("type")
+                if message["json"].get("turn") != self.turn:
+                    continue  # also a "done" that came after its answer had already ended
+                if kind == "mic":
                     mic_open = True
                     if limit:
                         cut_at = min(cut_at or math.inf, time.monotonic() + limit)
                         await self.clock("Speaking time", limit)
+                    if self.manual:
+                        cut_at = min(cut_at or math.inf, time.monotonic() + config.MANUAL_ANSWER_SECONDS)
+                elif kind == "done" and mic_open:
+                    if partial:
+                        await partial
+                        partial = None
+                    heard = self.heard()
+                    text = ""
+                    if heard is not None and len(heard) >= SAMPLE_RATE // 2:
+                        text = await self.hear(question, heard)
+                    if text:
+                        return text
+                    self.turns.reset()
+                    self.recorded = None
+                    mic_open = not self.manual  # manual: Speak is pressed again
+                    await self.ws.send_json({"type": "nothing_heard"})
                 continue
             if not mic_open or not message.get("bytes"):
                 continue
 
-            for event in self.turns.feed(message["bytes"]):
+            if self.manual:
+                # The detector only says when speech starts: the silence before it is left out
+                # (Whisper invents words for silence), and nothing but "done" ends the answer.
+                if self.recorded is None and any(isinstance(e, str) for e in self.turns.feed(message["bytes"])):
+                    self.recorded = [self.turns.current()]  # with the moment before the first sound
+                elif self.recorded is not None:
+                    self.recorded.append(np.frombuffer(message["bytes"], dtype=np.int16).astype(np.float32) / 32768)
+                events = []
+            else:
+                events = self.turns.feed(message["bytes"])
+            for event in events:
                 if isinstance(event, str):
                     await self.ws.send_json({"type": "listening"})
                     continue
@@ -357,14 +404,20 @@ class Talk:
                 if text:
                     return text
 
-            heard = self.turns.current()
             due = time.monotonic() - last_partial > config.PARTIAL_TRANSCRIPT_EVERY_S
-            # Whisper invents text for very short audio, so wait for a second of speech.
-            long_enough = heard is not None and len(heard) >= SAMPLE_RATE
-            if long_enough and due and (partial is None or partial.done()):
-                last_partial = time.monotonic()
-                # Only the last 20 s: the live text stays fast during a two-minute talk.
-                partial = asyncio.create_task(self.send_partial(heard[-20 * SAMPLE_RATE:]))
+            if due and (partial is None or partial.done()):
+                heard = self.heard()
+                # Whisper invents text for very short audio, so wait for a second of speech.
+                if heard is not None and len(heard) >= SAMPLE_RATE:
+                    last_partial = time.monotonic()
+                    # Only the last 20 s: the live text stays fast during a two-minute talk.
+                    partial = asyncio.create_task(self.send_partial(heard[-20 * SAMPLE_RATE:]))
+
+    def heard(self) -> np.ndarray | None:
+        """The answer so far, while the candidate is still speaking."""
+        if self.manual:
+            return np.concatenate(self.recorded) if self.recorded else None  # None: no speech yet
+        return self.turns.current()
 
     async def hear(self, question: str, audio: np.ndarray) -> str:
         """Transcribes one answer, saves it and starts its checks. Returns "" for no words."""

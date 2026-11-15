@@ -20,6 +20,10 @@ PARTIAL_TRANSCRIPT_EVERY_S = float(os.environ.get("PARTIAL_TRANSCRIPT_EVERY_S", 
 # How long you must be silent before your answer counts as finished.
 # IELTS candidates pause to think, so this is longer than in a chat assistant.
 END_OF_TURN_SILENCE_MS = int(os.environ.get("END_OF_TURN_SILENCE_MS", "1500"))
+# The app can ask for a longer pause (people who speak slowly), within these limits.
+MIN_SILENCE_MS, MAX_SILENCE_MS = 1000, 6000
+# "Press to speak": an answer you never send is cut off after this long.
+MANUAL_ANSWER_SECONDS = float(os.environ.get("MANUAL_ANSWER_SECONDS", "300"))
 
 # Full exam timing, in seconds. Part 1 and Part 3 ask no new question in their last
 # WRAP_UP_SECONDS, and cut off an answer still going on at the limit.

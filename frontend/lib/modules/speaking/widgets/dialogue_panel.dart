@@ -55,8 +55,9 @@ class _DialoguePanelState extends State<DialoguePanel> {
     Phase.connecting => 'Starting…',
     Phase.examinerSpeaking => '${widget.examinerName} is speaking',
     Phase.preparing => 'Prepare your talk: you can make notes',
-    Phase.yourTurn => 'Your turn: speak when you are ready',
-    Phase.hearing => 'Listening…',
+    Phase.yourTurn when s.notice.isNotEmpty => s.notice,
+    Phase.yourTurn => s.manual ? 'Your turn: press Speak when you are ready' : 'Your turn: speak when you are ready',
+    Phase.hearing => s.manual ? 'Recording: press Send when you have finished' : 'Listening…',
     Phase.thinking => '${widget.examinerName} is thinking',
     Phase.ending => 'Saving your session…',
     Phase.error => s.error,
@@ -115,10 +116,35 @@ class _DialoguePanelState extends State<DialoguePanel> {
                       label: const Text('Saving your answers'),
                     )
                   : s.active
-                  ? OutlinedButton.icon(
-                      onPressed: s.end,
-                      icon: const Icon(Icons.stop),
-                      label: const Text('End session'),
+                  ? Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        if (s.manual && s.phase == Phase.yourTurn)
+                          FilledButton.icon(
+                            onPressed: s.speak,
+                            icon: const Icon(Icons.mic),
+                            label: const Text('Speak'),
+                          ),
+                        if (s.manual && s.phase == Phase.hearing)
+                          FilledButton.icon(
+                            onPressed: s.finishAnswer,
+                            icon: const Icon(Icons.send),
+                            label: const Text('Send'),
+                          ),
+                        if (!s.manual && s.phase == Phase.hearing)
+                          FilledButton.tonalIcon(
+                            onPressed: s.finishAnswer,
+                            icon: const Icon(Icons.check),
+                            label: const Text('I\'ve finished'),
+                          ),
+                        OutlinedButton.icon(
+                          onPressed: s.end,
+                          icon: const Icon(Icons.stop),
+                          label: const Text('End session'),
+                        ),
+                      ],
                     )
                   : FilledButton.icon(
                       onPressed: widget.onStart,
@@ -189,7 +215,8 @@ class _LiveTranscript extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final listening = session.phase == Phase.yourTurn || session.phase == Phase.hearing;
+    // Press to speak: nothing is heard until you press Speak.
+    final listening = (session.phase == Phase.yourTurn && !session.manual) || session.phase == Phase.hearing;
     if (!listening) return const SizedBox.shrink();
     return Container(
       width: double.infinity,

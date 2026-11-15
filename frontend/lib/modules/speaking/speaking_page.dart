@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:web/web.dart' as web;
 
 import 'api.dart';
 import 'session.dart';
@@ -33,6 +34,26 @@ class _SpeakingPageState extends State<SpeakingPage> {
   String _mode = 'part1';
   String _voice = 'bf_emma';
   bool _live = true; // show corrections during the session
+  bool _manual = _stored('speaking.manual') == 'true'; // press to speak
+  int _silenceMs = SetupPanel.pauses.keys.firstWhere(
+    (ms) => '$ms' == _stored('speaking.silenceMs'),
+    orElse: () => SetupPanel.pauses.keys.first,
+  );
+
+  /// How you answer is remembered in this browser (it may refuse: then nothing is remembered).
+  static String? _stored(String key) {
+    try {
+      return web.window.localStorage.getItem(key);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static void _store(String key, String value) {
+    try {
+      web.window.localStorage.setItem(key, value);
+    } catch (_) {}
+  }
 
   @override
   void initState() {
@@ -90,6 +111,8 @@ class _SpeakingPageState extends State<SpeakingPage> {
       drill: _mode == 'drill' ? _drill : null,
       esl: _mode == 'letter' ? (_card ?? (_cards.isEmpty ? null : _cards[Random().nextInt(_cards.length)].slug)) : null,
       level: _level,
+      silenceMs: _silenceMs,
+      manual: _manual,
     );
   }
 
@@ -133,6 +156,16 @@ class _SpeakingPageState extends State<SpeakingPage> {
         onVoice: (id) => setState(() => _voice = id),
         liveCorrections: _live,
         onLiveCorrections: (on) => setState(() => _live = on),
+        manual: _manual,
+        onManual: (on) {
+          _store('speaking.manual', '$on');
+          setState(() => _manual = on);
+        },
+        silenceMs: _silenceMs,
+        onSilenceMs: (ms) {
+          _store('speaking.silenceMs', '$ms');
+          setState(() => _silenceMs = ms);
+        },
       ),
     );
     DialoguePanel dialogue({Widget? headerAction}) => DialoguePanel(
