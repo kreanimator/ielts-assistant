@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 
 import 'api.dart';
@@ -84,5 +86,14 @@ Future<Report> writeReport(String id, {bool again = false}) async {
 }
 
 Future<void> deleteSession(String id) => getJson(http.delete(apiUri('/api/sessions/$id')));
+
+/// Several at once, with their recordings.
+Future<void> deleteSessions(Iterable<String> ids) => getJson(
+  http.post(
+    apiUri('/api/sessions/delete'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({'ids': ids.toList()}),
+  ),
+);
 
 Uri answerAudioUri(String id, int answer) => apiUri('/api/sessions/$id/answers/$answer.wav');

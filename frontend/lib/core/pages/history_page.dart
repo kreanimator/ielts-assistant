@@ -27,6 +27,7 @@ class HistoryPage extends StatefulWidget {
 
 class _HistoryPageState extends State<HistoryPage> {
   List<StoredSession>? _sessions;
+  Set<String>? _selected; // the ids ticked for deleting; null: not selecting
   String? _error;
 
   @override
@@ -38,7 +39,10 @@ class _HistoryPageState extends State<HistoryPage> {
   Future<void> _load() async {
     try {
       final sessions = await fetchSessions(module: widget.module);
-      setState(() => _sessions = sessions);
+      setState(() {
+        _sessions = sessions;
+        _selected?.retainAll({for (final s in sessions) s.id});
+      });
     } catch (e) {
       setState(() => _error = 'Could not load your sessions ($e).');
     }
@@ -49,12 +53,77 @@ class _HistoryPageState extends State<HistoryPage> {
     _load(); // a report may have been written, or the session deleted
   }
 
+  void _toggle(StoredSession s) => setState(() {
+    final selected = _selected ??= {};
+    if (!selected.remove(s.id)) selected.add(s.id);
+  });
+
+  Future<void> _deleteSelected() async {
+    final ids = _selected!;
+    final n = ids.length;
+    final what = n == 1 ? 'this session' : 'these $n sessions';
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete $what?'),
+        content: const Text(
+          'Their answers, recordings and reports are removed for good, '
+          'and they no longer count towards your bands.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (sure != true) return;
+    try {
+      await deleteSessions(ids);
+      if (mounted) setState(() => _selected = null);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not delete ($e).')));
+      }
+    }
+    await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final sessions = _sessions;
+    final selected = _selected;
+    final all = sessions != null && selected != null && selected.length == sessions.length;
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: selected == null
+          ? AppBar(
+              title: Text(widget.title),
+              actions: [
+                if (sessions != null && sessions.isNotEmpty)
+                  TextButton(onPressed: () => setState(() => _selected = {}), child: const Text('Select')),
+                const SizedBox(width: 8),
+              ],
+            )
+          : AppBar(
+              leading: IconButton(
+                tooltip: 'Cancel',
+                onPressed: () => setState(() => _selected = null),
+                icon: const Icon(Icons.close),
+              ),
+              title: Text('${selected.length} selected'),
+              actions: [
+                TextButton(
+                  onPressed: () => setState(() => _selected = all ? {} : {for (final s in sessions!) s.id}),
+                  child: Text(all ? 'Select none' : 'Select all'),
+                ),
+                IconButton(
+                  tooltip: 'Delete the selected sessions',
+                  onPressed: selected.isEmpty ? null : _deleteSelected,
+                  icon: const Icon(Icons.delete_outline),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
       body: sessions == null
           ? Center(child: _error == null ? const CircularProgressIndicator() : Text(_error!))
           : Center(
@@ -71,7 +140,15 @@ class _HistoryPageState extends State<HistoryPage> {
                     const SizedBox(height: 8),
                     if (sessions.isEmpty) const Text('No sessions yet. Practise once and it appears here.'),
                     for (final s in sessions)
-                      SessionTile(session: s, title: s.title(widget.modeTitle(s.mode)), onTap: () => _open(s)),
+                      SessionTile(
+                        session: s,
+                        title: s.title(widget.modeTitle(s.mode)),
+                        leading: selected == null
+                            ? null
+                            : Checkbox(value: selected.contains(s.id), onChanged: (_) => _toggle(s)),
+                        onTap: selected == null ? () => _open(s) : () => _toggle(s),
+                        onLongPress: selected == null ? () => _toggle(s) : null,
+                      ),
                   ],
                 ),
               ),
@@ -82,11 +159,19 @@ class _HistoryPageState extends State<HistoryPage> {
 
 /// A past session in a list: what it was, when, and its band.
 class SessionTile extends StatelessWidget {
-  const SessionTile({super.key, required this.session, required this.title, required this.onTap, this.leading});
+  const SessionTile({
+    super.key,
+    required this.session,
+    required this.title,
+    required this.onTap,
+    this.onLongPress,
+    this.leading,
+  });
 
   final StoredSession session;
   final String title;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final Widget? leading;
 
   @override
@@ -100,6 +185,7 @@ class SessionTile extends StatelessWidget {
         subtitle: Text('${formatWhen(s.startedAt)} · ${_amount(s)}'),
         trailing: _BandText(s.report),
         onTap: onTap,
+        onLongPress: onLongPress,
       ),
     );
   }
