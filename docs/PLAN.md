@@ -194,3 +194,8 @@ without any books.
    with the same controls as in Reading (their text from `make web-tests`), marked with the
    answer keys (already read in milestone 20) and given a band from the official Listening
    table; a marked review with the recordings to hear again and the transcripts
+22. ✅ Writing: letters judged by their register. The assessor first says who the letter is to
+   and the register that needs (informal, semi-formal, formal), and judges the tone against
+   it, so an informal letter is not marked down or "corrected" for sounding informal. Each
+   correction has a kind (grammar, spelling, precision, style, task): errors are marked in the
+   answer, style suggestions are optional and listed apart, task notes say what is missing
