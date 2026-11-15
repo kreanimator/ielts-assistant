@@ -48,6 +48,13 @@ CREATE TABLE IF NOT EXISTS mistakes (       -- filled from the sessions, see mis
     type TEXT,                  -- of mistakes.TYPES, once the LLM has named it: "articles" or "agreement,prepositions"
     PRIMARY KEY (session_id, key)
 );
+CREATE TABLE IF NOT EXISTS practice_units ( -- a lesson with exercises for one type of mistake, see practice.py
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,         -- one of mistakes.TYPES
+    created_at TEXT NOT NULL,
+    content TEXT NOT NULL,      -- JSON: the lesson and the exercises with their answers
+    result TEXT                 -- JSON, once checked: what you answered, what was right, the score
+);
 """
 
 

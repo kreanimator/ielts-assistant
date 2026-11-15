@@ -210,3 +210,10 @@ without any books.
    it mends two things), once, kept in the database; the page shows the types by how often
    you make them, with your own examples and their sessions, the words you misspell and the
    sounds you get wrong, and marks a type you no longer make as improving
+25. ✅ Practice for your mistakes: for a type of mistake, a short lesson (the rules learners break
+   most, each with a wrong and a right sentence, then your own mistakes of that type) and about
+   ten exercises (fill the gap from three options; correct the sentence), written new each time
+   by the LLM. Every exercise is checked before it is shown: each sentence it can make is
+   judged on its own, so a gap two options fit, or a "wrong" sentence that is right, is
+   dropped. Gap-fills are marked by the code; a corrected sentence that is not the expected
+   one is judged by the LLM. The last score is kept per type

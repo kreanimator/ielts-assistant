@@ -6,6 +6,7 @@ import '../core/dashboard.dart';
 import '../core/mistakes.dart';
 import '../core/pages/history_page.dart' show formatWhen;
 import '../modules/registry.dart';
+import 'practice_page.dart';
 
 /// Your mistakes from every Speaking and Writing session: by type, with your own examples.
 class MistakesPage extends StatefulWidget {
@@ -193,6 +194,15 @@ class _TypeCard extends StatelessWidget {
           for (final e in t.examples) _Example(example: e, skill: skill(e.module), onOpen: () => onOpen(e)),
           if (t.count > t.examples.length)
             Text('The latest ${t.examples.length} of ${t.count}.', style: theme.textTheme.bodySmall),
+          if (t.id != 'other')
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.tonalIcon(
+                onPressed: () => openPracticeUnit(context, t.id, t.title),
+                icon: const Icon(Icons.school_outlined),
+                label: const Text('Practise this'),
+              ),
+            ),
         ],
       ),
     );

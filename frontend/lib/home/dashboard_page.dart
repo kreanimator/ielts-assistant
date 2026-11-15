@@ -10,6 +10,7 @@ import '../core/widgets/band.dart';
 import '../core/widgets/progress_chart.dart';
 import '../modules/registry.dart';
 import 'mistakes_page.dart';
+import 'practice_page.dart';
 
 /// The home screen: your estimated bands, a card per skill to practise it, progress and
 /// your latest sessions.
@@ -114,22 +115,40 @@ class _DashboardPageState extends State<DashboardPage> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: ListTile(
-                      leading: Icon(Icons.fact_check_outlined, color: theme.colorScheme.primary),
-                      title: const Text('Your mistakes'),
-                      subtitle: const Text(
-                        'Every correction from Speaking and Writing, sorted by the type of mistake, with your own examples',
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _visit(
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => MistakesPage(dashboard: dashboard)),
+                  _Grid(
+                    minWidth: 320,
+                    children: [
+                      Card(
+                        margin: EdgeInsets.zero,
+                        child: ListTile(
+                          leading: Icon(Icons.fact_check_outlined, color: theme.colorScheme.primary),
+                          title: const Text('Your mistakes'),
+                          subtitle: const Text(
+                            'Every correction from Speaking and Writing, sorted by the type of mistake',
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => _visit(
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => MistakesPage(dashboard: dashboard)),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      Card(
+                        margin: EdgeInsets.zero,
+                        child: ListTile(
+                          leading: Icon(Icons.school_outlined, color: theme.colorScheme.primary),
+                          title: const Text('Practice'),
+                          subtitle: const Text('A short lesson and exercises on one type of mistake, yours first'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => _visit(
+                            () =>
+                                Navigator.push(context, MaterialPageRoute(builder: (context) => const PracticePage())),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
                   Text('Progress', style: theme.textTheme.titleLarge),
