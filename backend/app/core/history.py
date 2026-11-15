@@ -5,6 +5,7 @@
   POST   /api/sessions/{id}/report           writes the band report if there is none yet (or ?again=true), returns it
   GET    /api/sessions/{id}/answers/{n}.wav  your recorded answer
   DELETE /api/sessions/{id}                  removes the session and its recordings
+  POST   /api/sessions/delete                removes several at once: {"ids": [...]}
 
 Each session belongs to a module (speaking, writing, ...), which writes its report (see modules.py).
 """
@@ -12,6 +13,7 @@ import asyncio
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from . import storage
 from .modules import MODULES
@@ -57,6 +59,19 @@ def delete_session(session_id: str):
     _session_or_404(session_id)
     storage.delete_session(session_id)
     return {"deleted": session_id}
+
+
+class Ids(BaseModel):
+    ids: list[str]
+
+
+@router.post("/delete")
+def delete_sessions(body: Ids):
+    """Removes the sessions that exist; ids that do not (already deleted) are skipped."""
+    deleted = [i for i in body.ids if storage.get_session(i) is not None]
+    for session_id in deleted:
+        storage.delete_session(session_id)
+    return {"deleted": deleted}
 
 
 def _session_or_404(session_id: str) -> dict:

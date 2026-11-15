@@ -487,7 +487,9 @@ copyrighted material.
 
 **Your data stays local.** Recordings, transcripts and reports are saved under
 `data/` on your machine (`data/ielts.db` and `data/sessions/`) and are never
-uploaded anywhere. Delete a session from the History page to remove it.
+uploaded anywhere. Delete a session from the History page to remove it, or
+press **Select** there to tick several (or all) and delete them at once; deleted
+sessions no longer count towards your bands.
 
 ## License
 
