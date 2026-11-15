@@ -204,3 +204,9 @@ without any books.
    speak** nothing is heard until you press Speak, and only Send (or a time limit) ends the
    answer. The silence before the first word is left out, and an answer without words is
    asked for again
+24. ✅ Your mistakes, collected: every correction from Speaking (the analyst's) and Writing (the
+   marked errors) on one page, opened from the dashboard. The LLM gives each one a type from a
+   fixed list (articles, past tenses, agreement, prepositions, word form, ...; two types when
+   it mends two things), once, kept in the database; the page shows the types by how often
+   you make them, with your own examples and their sessions, the words you misspell and the
+   sounds you get wrong, and marks a type you no longer make as improving

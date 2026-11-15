@@ -9,6 +9,7 @@ import '../core/pages/history_page.dart';
 import '../core/widgets/band.dart';
 import '../core/widgets/progress_chart.dart';
 import '../modules/registry.dart';
+import 'mistakes_page.dart';
 
 /// The home screen: your estimated bands, a card per skill to practise it, progress and
 /// your latest sessions.
@@ -111,6 +112,24 @@ class _DashboardPageState extends State<DashboardPage> {
                           onHistory: (module) => _visit(() => module.openHistory!(context, skill.modeTitle)),
                         ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: ListTile(
+                      leading: Icon(Icons.fact_check_outlined, color: theme.colorScheme.primary),
+                      title: const Text('Your mistakes'),
+                      subtitle: const Text(
+                        'Every correction from Speaking and Writing, sorted by the type of mistake, with your own examples',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _visit(
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => MistakesPage(dashboard: dashboard)),
+                        ),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 24),
                   Text('Progress', style: theme.textTheme.titleLarge),

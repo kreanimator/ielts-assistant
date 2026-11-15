@@ -37,6 +37,17 @@ CREATE TABLE IF NOT EXISTS messages (
     feedback TEXT,              -- JSON: the analyst's corrections
     PRIMARY KEY (session_id, seq)
 );
+CREATE TABLE IF NOT EXISTS mistakes (       -- filled from the sessions, see mistakes.py
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    key TEXT NOT NULL,          -- which correction of the session: "<answer>.<n>" or "task<k>.<n>"
+    module TEXT NOT NULL,
+    category TEXT NOT NULL,     -- the module's own word: grammar, vocabulary, spelling, ...
+    original TEXT NOT NULL,
+    better TEXT NOT NULL,
+    why TEXT NOT NULL,
+    type TEXT,                  -- of mistakes.TYPES, once the LLM has named it: "articles" or "agreement,prepositions"
+    PRIMARY KEY (session_id, key)
+);
 """
 
 

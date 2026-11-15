@@ -253,6 +253,25 @@ list and the topics of your imported tests.
 Other settings, such as the default voice, are environment variables;
 see [backend/app/speaking/config.py](backend/app/speaking/config.py).
 
+### Your mistakes
+
+**Your mistakes** on the dashboard collects every correction you were given, from all your
+Speaking and Writing sessions, and sorts them by the type of mistake: articles, past tenses,
+subject–verb agreement, prepositions, word form, word choice and so on (20 types). For each
+type you see how often you make it, in which skill, when you last did, and your own examples:
+what you said or wrote, the better words and why, with a button that opens the session. Below
+are the words you misspelled in Writing and the sounds heard as another sound in Speaking.
+
+- The type of each correction is worked out by the AI, once, the first time the page is
+  opened after a session (a few seconds for a session's corrections; a bar shows it). A
+  correction that mends two things ("he go at school") counts for both types.
+- **The types can be wrong.** Checked by hand on 88 corrections of real candidates' answers
+  from the books, about 8 in 10 had a right type; a correction that rewrites several words at
+  once is the usual miss, and lands in "Word choice".
+- A type is marked **Improving** when you made it more than once before but not in your last
+  three sessions that had mistakes.
+- Deleting a session removes its mistakes from the page.
+
 ### Writing practice
 
 Choose **Writing** on the dashboard, then the task and where it comes from:
