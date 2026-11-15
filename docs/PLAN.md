@@ -199,3 +199,8 @@ without any books.
    it, so an informal letter is not marked down or "corrected" for sounding informal. Each
    correction has a kind (grammar, spelling, precision, style, task): errors are marked in the
    answer, style suggestions are optional and listed apart, task notes say what is missing
+23. ✅ Speaking: how you answer. The pause that ends an answer can be 1.5, 2.5 or 4 seconds, for
+   people who speak slowly; **I've finished** ends an answer at once; and with **Press to
+   speak** nothing is heard until you press Speak, and only Send (or a time limit) ends the
+   answer. The silence before the first word is left out, and an answer without words is
+   asked for again

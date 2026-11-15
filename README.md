@@ -84,7 +84,8 @@ These are practice estimates, not official IELTS scores.
 5. **Practise:** the app opens on the dashboard. Press **Practise** on the Speaking card,
    allow the microphone when the browser asks, choose a training mode on the left (for
    example **Part 1 · Interview**) and press **Start**. Speak after the examiner has
-   finished; a short pause ends your answer. **All skills** takes you back to the dashboard.
+   finished; a short pause ends your answer (a longer pause, or **Press to speak**, can be
+   chosen on the left). **All skills** takes you back to the dashboard.
 6. **Stop it:** press **Ctrl+C** in the terminal. This stops both servers. Your sessions
    are kept in `data/` for next time.
 
@@ -238,7 +239,18 @@ card links to its page on the site. Thanks to ESL Conversation Questions for the
 In the other modes, the topic field suggests topics as you type: the app's own A–Z
 list and the topics of your imported tests.
 
-Settings such as the voice or the end-of-turn pause are environment variables;
+**How you answer** is set on the left, before a session, and remembered in your browser:
+
+- **Pause that ends your answer:** 1.5 seconds as it comes, or 2.5 or 4 seconds if you speak
+  slowly or stop to think (the Part 2 talk always waits 5 seconds). While you are speaking,
+  **I've finished** ends your answer at once, so a long pause does not make you wait.
+- **Press to speak**, if you do not like the microphone listening by itself: after the
+  examiner's question nothing is recorded until you press **Speak**; you take your time,
+  pauses included, and press **Send** when you have finished. The time limits of the full
+  exam and of the Part 2 talk still count. The time before you press Speak is not recorded,
+  so it does not show as hesitation in your fluency numbers, as it would in the real test.
+
+Other settings, such as the default voice, are environment variables;
 see [backend/app/speaking/config.py](backend/app/speaking/config.py).
 
 ### Writing practice

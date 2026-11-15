@@ -30,6 +30,10 @@ class SetupPanel extends StatelessWidget {
     required this.onVoice,
     required this.liveCorrections,
     required this.onLiveCorrections,
+    required this.manual,
+    required this.onManual,
+    required this.silenceMs,
+    required this.onSilenceMs,
     required this.onHistory,
     required this.onHome,
   });
@@ -53,6 +57,13 @@ class SetupPanel extends StatelessWidget {
   final ValueChanged<String> onMode, onVoice;
   final bool liveCorrections; // can be changed during a session too
   final ValueChanged<bool> onLiveCorrections;
+  final bool manual; // press to speak: Speak and Send buttons, no pause ends an answer
+  final ValueChanged<bool> onManual;
+  final int silenceMs; // the pause that ends an answer
+  final ValueChanged<int> onSilenceMs;
+
+  /// The pauses to choose from. The first is the backend's own.
+  static const pauses = {1500: 'Normal: 1.5 seconds', 2500: 'Longer: 2.5 seconds', 4000: 'Longest: 4 seconds'};
   final VoidCallback onHistory, onHome;
 
   @override
@@ -135,6 +146,38 @@ class SetupPanel extends StatelessWidget {
           value: liveCorrections && mode != 'exam',
           onChanged: mode == 'exam' ? null : onLiveCorrections,
         ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Press to speak'),
+          subtitle: Text(
+            manual
+                ? 'You press Speak, take your time, and press Send when you have finished.'
+                : 'Off: the microphone opens by itself and a pause ends your answer.',
+          ),
+          value: manual,
+          onChanged: enabled ? onManual : null,
+        ),
+        const SizedBox(height: 8),
+        DropdownMenu<int>(
+          key: ValueKey(silenceMs),
+          enabled: enabled && !manual,
+          expandedInsets: EdgeInsets.zero,
+          requestFocusOnTap: false,
+          label: const Text('Pause that ends your answer'),
+          initialSelection: silenceMs,
+          dropdownMenuEntries: [for (final p in pauses.entries) DropdownMenuEntry(value: p.key, label: p.value)],
+          onSelected: (ms) => ms == null ? null : onSilenceMs(ms),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 6, left: 4),
+          child: Text(
+            manual
+                ? 'Not used with Press to speak.'
+                : 'Longer if you speak slowly or stop to think. The Part 2 talk always waits 5 seconds.',
+            style: text.bodySmall,
+          ),
+        ),
+        const SizedBox(height: 8),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.memory),
