@@ -272,6 +272,29 @@ are the words you misspelled in Writing and the sounds heard as another sound in
   three sessions that had mistakes.
 - Deleting a session removes its mistakes from the page.
 
+### Practice
+
+**Practice** on the dashboard (or **Practise this** under a type on the mistakes page) gives
+you a unit on one type of mistake. The types you make come first, the most frequent at the top;
+any of the 18 can be practised without them.
+
+- **The lesson:** the three or four rules learners break most, each with a sentence that
+  breaks it and the same sentence right; then your own latest mistakes of that type.
+- **The exercises**, about ten: fill the gap with one of three options, and sentences with one
+  mistake to write correctly. **Check my answers** marks them, shows the answers with the
+  reason, and keeps your score; 8 in 10 right counts as practised well.
+- A unit is written new each time by the AI, which takes about half a minute to a minute.
+
+The AI's exercises are not trusted as they come. It writes twenty, and each sentence an
+exercise can make is then judged on its own, correct English or not, without saying which it
+should be: a gap that two options fit, or a "wrong" sentence that is in fact right, is dropped
+(about a third are), and so is an exercise about another kind of mistake. A wrong exercise can
+still slip through, and the page says so. Gap-fills are marked by the code; a corrected
+sentence that differs from the expected one is judged by the AI, since there is often more
+than one right way.
+
+Sounds are practised in Speaking (the **Drill** mode), not here, and spelling has no unit.
+
 ### Writing practice
 
 Choose **Writing** on the dashboard, then the task and where it comes from:

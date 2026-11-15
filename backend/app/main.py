@@ -7,6 +7,7 @@
   /api/sessions/...                 past sessions and reports, for every module (see core/history.py)
   GET /api/dashboard                the home screen's bands and progress (see core/dashboard.py)
   GET /api/mistakes                 your mistakes from every session, by type (see core/mistakes.py)
+  /api/practice/...                 lessons and exercises for a type of mistake (see core/practice.py)
   GET /                             the Flutter app (after `make frontend`)
   GET /dev                          a plain developer test page (Speaking)
 
@@ -21,7 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from .core import dashboard, history, mistakes
+from .core import dashboard, history, mistakes, practice
 from .listening.router import router as listening
 from .reading.router import router as reading
 from .speaking.router import router as speaking
@@ -42,6 +43,7 @@ app.add_middleware(
 app.include_router(history.router)
 app.include_router(dashboard.router)
 app.include_router(mistakes.router)
+app.include_router(practice.router)
 app.include_router(speaking)
 app.include_router(writing)
 app.include_router(reading)
