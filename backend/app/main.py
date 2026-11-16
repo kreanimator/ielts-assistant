@@ -55,9 +55,21 @@ def dev_page():
     return FileResponse(DEV_PAGE)
 
 
+class FreshFiles(StaticFiles):
+    """The built app, never from the browser's cache without asking: after an update (a new
+    build) a reload shows it. Without this header the browser decides by itself how long
+    main.dart.js stays fresh, and goes on showing the old app. Unchanged files still cost
+    nothing: the browser asks, and is told 304 by the ETag."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 # Last, so the routes above take priority over the static files.
 if FRONTEND.exists():
-    app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")
+    app.mount("/", FreshFiles(directory=FRONTEND, html=True), name="frontend")
 else:
     @app.get("/")
     def no_frontend():
