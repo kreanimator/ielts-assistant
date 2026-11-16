@@ -148,7 +148,7 @@ async def build(session: dict) -> dict:
     if found is None:
         raise HTTPException(404, "This test's answer key is gone: import your books again")
     answers = details["answers"]
-    right = answer_keys.mark({"answers": found["key"], "any_order": found["any_order"]}, answers)
+    right = answer_keys.mark(answer_keys.marking_key(found), answers)
     raw = sum(right.values())
     band = raw_band("listening", raw)
     questions = [{"q": int(q), "given": answers.get(q, ""), "key": found["key"][q], "right": right[q]}

@@ -469,18 +469,13 @@ class _ListeningTestPageState extends State<ListeningTestPage> {
               Positioned.fill(
                 child: MediaQuery(
                   data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
-                  // the questions across the full width, as in the test (a readable line's width)
-                  child: Align(
-                    alignment: Alignment.topLeft,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1000),
-                      child: QuestionPanel(
-                        key: PageStorageKey('listening-questions-$_part'),
-                        book: widget.state.book,
-                        part: part,
-                        access: access,
-                      ),
-                    ),
+                  // one column of a readable width in the middle of the page; the page scrolls
+                  child: QuestionPanel(
+                    key: PageStorageKey('listening-questions-$_part'),
+                    book: widget.state.book,
+                    part: part,
+                    access: access,
+                    maxWidth: 900,
                   ),
                 ),
               ),

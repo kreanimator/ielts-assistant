@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/discard_test.dart';
 import 'api.dart';
 import 'pages/reading_session_page.dart';
 import 'pages/reading_test_page.dart';
@@ -82,6 +83,13 @@ class _ReadingPageState extends State<ReadingPage> {
     await _refreshActive(); // back from the test: it may go on (the clock runs on the server) or be handed in
   }
 
+  /// Opened by mistake, or done before: the test in progress is deleted, without a result.
+  Future<void> _discard(ReadingTestState active) async {
+    if (!await discardTest(context, active.session)) return;
+    rememberReadingTest(null);
+    if (mounted) setState(() => _activeTest = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -127,9 +135,16 @@ class _ReadingPageState extends State<ReadingPage> {
                             : '${active.title}: ${_clockText(active.secondsLeft)} left. The clock keeps running.',
                       ),
                       const SizedBox(height: 8),
-                      FilledButton(
-                        onPressed: () => _open(active),
-                        child: Text(active.finished ? 'See the result' : 'Continue the test'),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          FilledButton(
+                            onPressed: () => _open(active),
+                            child: Text(active.finished ? 'See the result' : 'Continue the test'),
+                          ),
+                          if (!active.finished)
+                            TextButton(onPressed: () => _discard(active), child: const Text('Discard the test')),
+                        ],
                       ),
                     ],
                   ),

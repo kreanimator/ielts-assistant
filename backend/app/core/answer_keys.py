@@ -17,6 +17,10 @@ text mixes up, and most books are scanned. So:
    one size to another. A question without one is missing, and its test is left out.
 5. accepted() turns a printed answer into the answers that count as correct: "4/four sides",
    "(musical) instruments", "talk // give a talk", "NOT Africa" and the books' notes.
+6. mark() also takes what an examiner takes though the key does not print it: a number in
+   words or figures ("two weeks" for "2 weeks"), and words more than the key's that do not make
+   the answer wrong, within the word limit ("in small groups" for "groups", when that is what
+   the recording says): see right_answer() and more_words().
 
 Everything is written to data/private/books/<book>.keys.json (git-ignored):
 {"tests": {"1": {"listening": {...}, "reading": {...}}}}, each {"kind": "academic" | "general" | "",
@@ -394,16 +398,22 @@ def accepted(printed: str) -> set[str]:
     if both := re.fullmatch(r"\s*([A-L])\s*(?:\(and\)|and|&|,)?\s*([A-L])\s*", text):
         a, b = both.group(1).lower(), both.group(2).lower()  # two letters for one mark, either order
         return {a + b, b + a, f"{a}and{b}", f"{b}and{a}"}
-    text = re.sub(r"\bACCEPT\b", "//", text)
+    found = {squeezed(phrase) for phrase in phrases(printed)}
+    found.discard("")
+    for long, short in ABBREVIATIONS.items():
+        if long in found:
+            found.add(short)
+    return found
+
+
+def phrases(printed: str) -> set[str]:
+    """The answers a printed answer stands for, as words: "(in) groups" is "groups" and "in groups"."""
+    text = re.sub(r"\bACCEPT\b", "//", NOTE.sub(" ", printed))
     found = set()
     for whole in re.split(r"//|\s/\s|\bOR\b", text):
         whole = re.sub(r"\bNOT\b(?!\s*GIVEN).*", "", whole).strip(" ,;.")
         if whole:
             found |= _variants(whole)
-    found.discard("")
-    for long, short in ABBREVIATIONS.items():
-        if long in found:
-            found.add(short)
     return found
 
 
@@ -419,23 +429,159 @@ def _variants(text: str) -> set[str]:
         suffix = next((o[o.index("-"):] for o in options if "-" in o), "")
         choices.append([o if "-" in o or not suffix else o + suffix for o in options])
     combos = itertools.islice(itertools.product(*choices), 256)
-    return {squeezed(" ".join(c)) for c in combos}
+    return {" ".join(filter(None, c)) for c in combos}
+
+
+UNITS = {w: n for n, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve thirteen "
+                                    "fourteen fifteen sixteen seventeen eighteen nineteen".split())}
+TENS = {w: 10 * n for n, w in enumerate("twenty thirty forty fifty sixty seventy eighty ninety".split(), start=2)}
+ARTICLES = {"a", "an", "the"}
+# A word before the answer that an examiner lets pass: "in groups" for "groups".
+BEFORE = {"in", "at", "on", "for", "by", "with"}
+# Words that turn an answer round: "not confident" is not "confident" with a word more.
+TURNING = {"not", "no", "never", "less", "without", "nor", "neither", "hardly", "non", "except", "few", "little"}
+
+
+def words(text: str) -> list[str]:
+    """An answer as its words, as they are compared: lower case, no marks, and a number written
+    in words as its figures ("two weeks" is "2 weeks", "twenty-five" is "25"). "every second
+    day" and "every other day" are "every 2 days"."""
+    plain = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
+    plain = re.sub(r"(?<=\d)[,.:](?=\d)", "", plain.replace("'", ""))  # "1,500" and "4.30" stay one number
+    found, number = [], None  # number: [thousands done, the rest so far] while a number is read
+    for word in re.findall(r"[a-z]+|\d+", plain) + [""]:
+        value = UNITS.get(word, TENS.get(word))
+        if value is not None:
+            rest = number[1] if number else None
+            fits = rest is not None and (rest % 100 == 0 and rest > 0 or rest % 100 >= 20 and rest % 10 == 0 and value < 10)
+            if number and (fits or rest == 0 and number[0]):
+                number[1] += value  # "twenty" + "five", "two hundred" + "ten", "one thousand" + "five"
+            else:
+                if number:
+                    found.append(str(sum(number)))
+                number = [0, value]
+            continue
+        if word == "hundred" and number and 0 < number[1] < 10:
+            number[1] *= 100
+            continue
+        if word == "thousand" and number and not number[0] and 0 < number[1] < 1000:
+            number = [number[1] * 1000, 0]
+            continue
+        if word == "and" and number and (number[1] >= 100 and number[1] % 100 == 0 or number[0] and not number[1]):
+            continue  # "two hundred and ten"
+        if number:
+            found.append(str(sum(number)))
+            number = None
+        if word:
+            found.append(word)
+    for i in range(len(found) - 2):
+        if found[i] == "every" and found[i + 1] in ("second", "other") and found[i + 2].isalpha():
+            found[i + 1:i + 3] = ["2", found[i + 2].rstrip("s") + "s"]
+    return found
+
+
+def word_limit(instructions: str) -> tuple[int, bool] | None:
+    """How much may be written, from a group's instructions: "NO MORE THAN TWO WORDS AND/OR A
+    NUMBER" is (2, True), "ONE WORD ONLY" (1, False); None when they set no limit."""
+    m = re.search(r"\b(ONE|TWO|THREE|FOUR|FIVE)\s+WORDS?\b", instructions)
+    if m is None:
+        return None
+    return ["ONE", "TWO", "THREE", "FOUR", "FIVE"].index(m.group(1)) + 1, bool(re.search(r"\bNUMBERS?\b", instructions))
+
+
+def limits(content: dict | None) -> dict[str, tuple[int, bool]]:
+    """Each question's word limit, {"26": (3, True)}, from a test's groups of questions."""
+    found = {}
+    for part in (content or {}).get("parts", []):
+        for group in part["groups"]:
+            limit = word_limit(" ".join(group.get("instructions") or []))
+            if limit:
+                found.update({str(q): limit for q in range(group["first"], group["last"] + 1)})
+    return found
+
+
+def _inside(short: list[str], long: list[str]) -> bool:
+    return any(long[i:i + len(short)] == short for i in range(len(long) - len(short) + 1))
+
+
+def _bare(tokens: list[str]) -> list[str]:
+    return [t for t in tokens if t not in ARTICLES]
+
+
+def more_words(given: str, printed: str, limit: tuple[int, bool] | None, said: list[str] | None) -> bool:
+    """True when an answer is a key's answer with words more that do not make it wrong, as an
+    examiner accepts it: it holds the key's answer whole, stays within the word limit, turns
+    nothing round ("not ..."), and what was added is an article or a word like "in" before it
+    ("in groups"), or the answer is word for word what the recording says (or the passage): "in small groups" for "groups" when the speaker
+    said "We did these in small groups". `said`: words() of the recording or passage."""
+    answer = words(given)
+    if limit is None or not answer:
+        return False
+    for phrase in phrases(printed):
+        key = words(phrase)
+        if len("".join(key)) < 3 or not _inside(_bare(key), _bare(answer)):
+            continue  # a letter or a numeral is never part of a longer answer
+        if any(w in TURNING or w.startswith("un") and w[2:] in key for w in answer if w not in key):
+            continue
+        count = lambda tokens, digits: sum(t.isdigit() == digits for t in tokens)  # noqa: E731
+        numbers = max(1 if limit[1] else 0, count(key, True))
+        free = min(count(answer, True), numbers) if limit[1] else 0  # "AND/OR A NUMBER": it is not a word
+        if count(answer, True) > numbers or len(answer) - free > max(limit[0], len(key) - min(count(key, True), free)):
+            continue
+        led = _bare(answer)[1:] if _bare(answer)[0] in BEFORE and _bare(key)[0] not in BEFORE else None
+        if _bare(key) in (_bare(answer), led) or said and (_inside(answer, said) or _inside(_bare(answer), _bare(said))):
+            return True
+    return False
+
+
+def right_answer(given: str, printed: str, limit: tuple[int, bool] | None = None, said: list[str] | None = None) -> bool:
+    """Is this answer right for the printed one? As printed (accepted()); or the same with its
+    numbers in words or figures; or with words more that an examiner accepts (more_words())."""
+    if not squeezed(given):
+        return False
+    if squeezed(given) in accepted(printed):
+        return True
+    if len(squeezed(given)) > 2 and words(given) in [words(p) for p in phrases(printed)]:
+        return True
+    return more_words(given, printed, limit, said)
 
 
 def mark(key: dict, answers: dict[str, str]) -> dict[str, bool]:
     """Which answers are right, {"1": True, ...} for every question of the key. Questions that may
-    be answered in any order share their answers: each right answer counts once."""
-    right = {}
-    for q, printed in key["answers"].items():
-        given = squeezed(answers.get(q, ""))
-        right[q] = bool(given) and given in accepted(printed)
+    be answered in any order share their answers: each right answer counts once.
+
+    The key may bring "limits" (limits() of the test) and "said" (the words() of what each
+    question's part says or prints, {"26": [...]}); with them an answer with words more than the
+    key's is judged as in more_words()."""
+    limit, said = key.get("limits", {}), key.get("said", {})
+
+    def ok(q: str, printed: str) -> bool:
+        return right_answer(answers.get(q, ""), printed, limit.get(q), said.get(q))
+
+    right = {q: ok(q, printed) for q, printed in key["answers"].items()}
     for group in key.get("any_order", []):
         qs = [str(q) for q in group if str(q) in key["answers"]]
-        pool = [accepted(key["answers"][q]) for q in qs]
+        pool = [key["answers"][q] for q in qs]
         for q in qs:
-            given = squeezed(answers.get(q, ""))
-            match = next((i for i, options in enumerate(pool) if given and given in options), None)
+            match = next((i for i, printed in enumerate(pool) if ok(q, printed)), None)
             right[q] = match is not None
             if match is not None:
                 pool.pop(match)
     return right
+
+
+def said(content: dict | None) -> dict[str, list[str]]:
+    """For each question, the words() of its part's recording (the transcript) and passage."""
+    found = {}
+    for part in (content or {}).get("parts", []):
+        text = "\n".join([*part.get("transcript", []), *(b["text"] for b in part.get("passage", []))])
+        if text.strip():
+            tokens = words(text)
+            found.update({str(q): tokens for q in range(part["first"], part["last"] + 1)})
+    return found
+
+
+def marking_key(found: dict) -> dict:
+    """A test (its "key", "any_order" and, when it has its text, "content") as mark() takes it."""
+    content = found.get("content")
+    return {"answers": found["key"], "any_order": found["any_order"], "limits": limits(content), "said": said(content)}

@@ -217,3 +217,18 @@ without any books.
    judged on its own, so a gap two options fit, or a "wrong" sentence that is right, is
    dropped. Gap-fills are marked by the code; a corrected sentence that is not the expected
    one is judged by the LLM. The last score is kept per type
+
+After milestone 25:
+
+- Listening shows its questions as one column in the middle of the page (they were a column at
+  the left, with its scroll bar in the middle of the screen).
+- Listening and Reading answers are marked as an examiner marks them, not only as the key
+  prints them: a number in words or in figures ("two weeks" for "2 weeks", "every second day"
+  for "every 2 days"), an article or "in" before the answer, and words more that the recording
+  or the passage says with it ("in small groups" for "groups"), all within the question's word
+  limit and never with a word that turns the answer round ("not", "less"). The transcripts of
+  the web tests are read now (they were left empty), so the review shows what was said.
+- A test in progress (Reading, Listening, the full Writing test) can be discarded from its
+  skill's page: **Discard the test** deletes it with what was answered, without a result and
+  without a line in the history, so that a test opened by mistake does not have to be sat
+  through or handed in empty before another can be opened.
