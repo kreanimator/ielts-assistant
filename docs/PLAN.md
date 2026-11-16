@@ -228,3 +228,7 @@ After milestone 25:
   or the passage says with it ("in small groups" for "groups"), all within the question's word
   limit and never with a word that turns the answer round ("not", "less"). The transcripts of
   the web tests are read now (they were left empty), so the review shows what was said.
+- A test in progress (Reading, Listening, the full Writing test) can be discarded from its
+  skill's page: **Discard the test** deletes it with what was answered, without a result and
+  without a line in the history, so that a test opened by mistake does not have to be sat
+  through or handed in empty before another can be opened.

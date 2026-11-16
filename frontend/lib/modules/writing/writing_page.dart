@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
+import '../../core/widgets/discard_test.dart';
 import 'api.dart';
 import 'pages/writing_session_page.dart';
 import 'pages/writing_test_page.dart';
@@ -255,6 +256,13 @@ class _WritingPageState extends State<WritingPage> {
     });
   }
 
+  /// Opened by mistake, or done before: the test in progress is deleted, without a report.
+  Future<void> _discard(TestState active) async {
+    if (!await discardTest(context, active.session)) return;
+    rememberTest(null);
+    if (mounted) setState(() => _activeTest = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     final task = _task;
@@ -314,9 +322,16 @@ class _WritingPageState extends State<WritingPage> {
                             : '${active.title}: ${_clockText(active.secondsLeft)} left. The clock keeps running.',
                       ),
                       const SizedBox(height: 8),
-                      FilledButton(
-                        onPressed: () => _openTest(active),
-                        child: Text(active.finished ? 'See the report' : 'Continue the test'),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          FilledButton(
+                            onPressed: () => _openTest(active),
+                            child: Text(active.finished ? 'See the report' : 'Continue the test'),
+                          ),
+                          if (!active.finished)
+                            TextButton(onPressed: () => _discard(active), child: const Text('Discard the test')),
+                        ],
                       ),
                     ],
                   ),
