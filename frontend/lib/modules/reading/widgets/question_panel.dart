@@ -59,23 +59,43 @@ TextSpan _instruction(String line) {
 /// One part's questions, group by group, each question with its control, like the
 /// computer-delivered test.
 class QuestionPanel extends StatelessWidget {
-  const QuestionPanel({super.key, required this.book, required this.part, required this.access, this.controller});
+  const QuestionPanel({
+    super.key,
+    required this.book,
+    required this.part,
+    required this.access,
+    this.controller,
+    this.maxWidth,
+  });
 
   final String book;
   final ReadingPartText part;
   final AnswerAccess access;
   final ScrollController? controller;
 
+  /// The questions as one column of at most this width in the middle of the panel (Listening,
+  /// where they have the whole page); null: the panel's width (Reading, beside the passage).
+  final double? maxWidth;
+
   @override
   Widget build(BuildContext context) {
+    final groups = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [for (final g in part.groups) _Group(book: book, group: g, access: access)],
+    );
     // all built (a part has a dozen questions or so), so the bar can scroll to any of them
     return SingleChildScrollView(
       controller: controller,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [for (final g in part.groups) _Group(book: book, group: g, access: access)],
-      ),
+      child: maxWidth == null
+          ? groups
+          : Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth!),
+                child: SizedBox(width: double.infinity, child: groups),
+              ),
+            ),
     );
   }
 }

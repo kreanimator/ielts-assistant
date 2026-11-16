@@ -543,6 +543,10 @@ def parse_group(div: Node, answers: dict[str, str]) -> dict:
     return {**group, "type": "notes", "notes": notes}
 
 
+# A transcript's heading: "Part 3", or "Part 3 — A discussion about studying overseas".
+TRANSCRIPT_HEAD = re.compile(r"(?:Part|Section)\s*(\d)(?:\s*[—–:-].*)?")
+
+
 def parse_answers(root: Node) -> dict[str, str]:
     """The page's answers, {"1": "False", ...}."""
     key = root.first("div", id="answer-key")
@@ -609,9 +613,9 @@ def parse_test(html: str, skill: str) -> dict:
         scripts = {}
         for div in root.find("div"):
             head = div.elements[0] if div.elements else None
-            m = re.fullmatch(r"(?:Part|Section)\s*(\d)", head.text()) if head is not None and head.tag == "p" else None
+            m = TRANSCRIPT_HEAD.fullmatch(head.text().strip()) if head is not None and head.tag == "p" else None
             if m and len(div.elements) > 1:
-                scripts.setdefault(int(m.group(1)), [p.text().strip() for p in div.elements[1:] if p.text().strip()])
+                scripts.setdefault(int(m.group(1)), [line.strip() for p in div.elements[1:] for line in p.text().split("\n") if line.strip()])
         for part in parts:
             part["transcript"] = scripts.get(part["part"], [])
     return {"key": answers, "any_order": any_order, "sections": [[p["first"], p["last"]] for p in parts],
