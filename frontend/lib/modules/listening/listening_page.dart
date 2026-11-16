@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/discard_test.dart';
 import 'api.dart';
 import 'pages/listening_session_page.dart';
 import 'pages/listening_test_page.dart';
@@ -76,6 +77,13 @@ class _ListeningPageState extends State<ListeningPage> {
     await _refreshActive(); // back from the test: its recording goes on, or it was handed in
   }
 
+  /// Opened by mistake, or done before: the test in progress is deleted, without a result.
+  Future<void> _discard(ListeningTestState active) async {
+    if (!await discardTest(context, active.session)) return;
+    rememberListeningTest(null);
+    if (mounted) setState(() => _activeTest = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -119,9 +127,16 @@ class _ListeningPageState extends State<ListeningPage> {
                             : '${active.title}: not started yet.',
                       ),
                       const SizedBox(height: 8),
-                      FilledButton(
-                        onPressed: () => _open(active),
-                        child: Text(active.finished ? 'See the result' : 'Continue the test'),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          FilledButton(
+                            onPressed: () => _open(active),
+                            child: Text(active.finished ? 'See the result' : 'Continue the test'),
+                          ),
+                          if (!active.finished)
+                            TextButton(onPressed: () => _discard(active), child: const Text('Discard the test')),
+                        ],
                       ),
                     ],
                   ),
