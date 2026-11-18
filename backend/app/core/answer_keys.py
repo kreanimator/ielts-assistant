@@ -59,9 +59,11 @@ SECTION_HEADING = re.compile(r"^(Section|Reading\s*Passage|Passage|Part)\b(.*?Qu
                              re.I)
 SCORES = re.compile(r"^If\s*you\s*score", re.I)  # the advice after each key: not answers
 RANGE = re.compile(r"^\d{1,2}\s*[-–]\s*\d{1,2}(\s+\d{1,2}\s*[-–]\s*\d{1,2})*$")  # "0-11  12-26"
-GROUP = re.compile(r"^(\d{1,2})\s*(?:&|and|,|-|–)\s*(\d{1,2})\b\s*(.*)$", re.I)
+GROUP = re.compile(r"^(\d{1,2})\s*(?:&|and|,|-|–)\s*(\d{1,2})(?!\d)\s*(.*)$", re.I)  # "26&27IN EITHER ORDER" too
 NUMBERED = re.compile(r"^(\d{1,2})\b(?![/:])\s*(.*)$")  # not "10/ten times", an answer
 EITHER = re.compile(r"\b(in\s*)?(either|any)\s*order\b", re.I)
+# The same note beside an answer, maybe cut short or after a mark of the bracket: "snakes § in either".
+NOTE_BESIDE = re.compile(r"\s+[^\w\s()]?\s*(?:(?:in\s*)?(either|any)\s*order|in\s+(either|any))\s*$", re.I)
 # The advice printed under each key ("you may get an acceptable score under examination conditions").
 ADVICE = re.compile(r"\b(you|score|scores|examination|conditions|recommend|acceptable|institutions|different|"
                     r"practice|lessons|improving|unlikely|likely|before|remember)\b", re.I)
@@ -76,8 +78,10 @@ def tidied(answer: str) -> str | None:
     a = answer.replace("∥", "//")
     a = re.sub(r"\s+(Reading|Listening)$", "", a)
     a = re.sub(r"\s+(that\s+)?you\b.*$", "", a)
+    a = re.sub(r"\s+(a\s+)?lot\s+of\s+time\b.*$", "", a)  # "plants lot of time improving your": the advice beside
     a = re.sub(r"\bBOTH\s*(REQUIRED\s*)?FOR\s*ONE\s*M\s*A\s*R\s*K\b,?", "", a, flags=re.I)
     a = re.sub(r"\b(IN\s+)?\w*TH\w*\s+ORDER\b", "", a, flags=re.I)  # "either order", OCR slips included
+    a = re.sub(r"(?<=\w)\s*[\]}]$", "", a)  # "walking boots]": the bracket round answers in any order
     a = a.strip(" ;,.")
     if re.fullmatch(r"[ivx!|]+", a):
         a = a.replace("!", "i").replace("|", "i")
@@ -169,6 +173,31 @@ class _Key:
         self.noted: list[int] = []  # "11 E in" / "12 F any" / "13 H order": one group
         self.sections: list[list[int]] = []  # [[1, 13], [14, 26], [27, 40]]: the questions of each part
         self.doubtful = False  # a question with two answers for one mark, printed over several lines
+        self.bracketed: list[tuple[int, str]] = []  # (17, "any"): "in any order" beside one answer of a bracket
+        self.unsure: set[int] = set()  # questions read, but not to be trusted: the web page's answer is used
+
+    def brackets(self):
+        """The groups that "in any order" / "in either order" beside one answer stand for. The
+        note is printed beside the middle of a bracket: of three answers ("any") beside the
+        middle one; of two ("either") beside the first or the second, so the one next to it that
+        is in the same part and in no other group."""
+        grouped = {q for g in self.any_order for q in g}
+
+        def free(q: int, near: int) -> bool:
+            part = lambda n: next((i for i, (a, b) in enumerate(self.sections) if a <= n <= b), (n - 1) // 10)  # noqa: E731
+            return near in self.answers and near not in grouped and part(near) == part(q)
+
+        for q, kind in self.bracketed:
+            if q in grouped:
+                continue
+            if kind == "any" and free(q, q - 1) and free(q, q + 1):
+                group = [q - 1, q, q + 1]
+            elif kind == "either" and (free(q, q + 1) or free(q, q - 1)):
+                group = [q, q + 1] if free(q, q + 1) else [q - 1, q]
+            else:
+                continue
+            self.any_order.append(group)
+            grouped |= set(group)
 
     def give(self, q: int, answer: str, guessed: bool = False):
         if q in self.guessed and not guessed:
@@ -225,10 +254,26 @@ class _Key:
 
 
 def parse(page_lines: list[list[str]]) -> dict[str, dict]:
-    """The keys in a book's key pages (each page's lines, see lines()), by test and skill."""
+    """The keys in a book's key pages (each page's lines, see lines()), by test and skill.
+
+    Some books (Cambridge 2) print no "TEST n" over their keys: a page is one test, its
+    Listening key beside its Reading key. Then each LISTENING heading starts the next test, and
+    only the Listening keys are read: the Reading columns run into each other on those pages."""
     tests: dict[str, dict[str, _Key]] = {}
     test, key, skipping = "", None, False
+    untitled = not any(TEST_HEADING.match(line.strip()) for page in page_lines for line in page)
     for line in (line.strip() for page in page_lines for line in page):
+        line = re.sub(r"^\S*order\s+(?=\d)", "", line, flags=re.I)  # "Iorder  39  B": a note of the next column
+        if untitled and (m := SKILL_HEADING.match(line)):
+            skipping = False
+            key = None
+            if m.group(2).upper() == "LISTENING":
+                test = str(len(tests) + 1)
+                key = tests.setdefault(test, {}).setdefault("listening", _Key())
+            continue
+        if untitled and re.match(r"(Reading\s*)?Passage\b", line, re.I):
+            key = None  # a Reading key: left out, see above
+            continue
         if m := TEST_HEADING.match(line):
             test, key, skipping = m.group(1).upper(), None, False
             if re.match(r"GENERAL", line, re.I):  # "GENERAL TRAINING TEST A": a Reading test only
@@ -275,7 +320,19 @@ def parse(page_lines: list[list[str]]) -> dict[str, dict]:
             q, rest = int(m.group(1)), m.group(2).strip()
             if 1 <= q <= 40 and not (q <= key.last and q not in key.guessed and not rest):
                 skipping = False
-                if TRAILING_NOTE.search(rest) and len(rest.split()) > 1:
+                if EITHER.fullmatch(rest.strip(" ;,.")):
+                    # "32  IN EITHER ORDER", then "metal" and "leather": two answers for one mark,
+                    # on lines of their own. They are read as one answer, but not trusted.
+                    key.close_note()
+                    key.unsure.add(q)
+                    key.queue.append(q)
+                    continue
+                if (note := NOTE_BESIDE.search(rest)) and rest[:note.start()].strip() and not re.search(r"REQUIRED|MARK", rest, re.I):
+                    # "17 socks  in any order": the note beside a bracket round 16 to 18
+                    key.close_note()
+                    key.bracketed.append((q, (note.group(1) or note.group(2)).lower()))
+                    rest = rest[:note.start()].strip()
+                elif TRAILING_NOTE.search(rest) and len(rest.split()) > 1:
                     key.noted.append(q)
                     rest = TRAILING_NOTE.sub("", rest)
                 else:
@@ -299,6 +356,7 @@ def parse(page_lines: list[list[str]]) -> dict[str, dict]:
     for skills in tests.values():
         for k in skills.values():
             k.answers = {q: tidy for q, a in k.answers.items() if (tidy := tidied(a))}
+            k.brackets()
             for q, a in k.answers.items():
                 near = [k.answers.get(q - 1, ""), k.answers.get(q + 1, "")]
                 if a in ("1", "l", "|") and any(re.fullmatch(r"[A-L]", n) for n in near):
@@ -307,7 +365,7 @@ def parse(page_lines: list[list[str]]) -> dict[str, dict]:
                     k.answers[q] = "i"
     return {t: {s: {"kind": k.kind, "answers": {str(q): a for q, a in sorted(k.answers.items())},
                     "any_order": k.any_order, "guessed": sorted(k.guessed),
-                    "sections": sorted(k.sections), "doubtful": k.doubtful}
+                    "sections": sorted(k.sections), "doubtful": k.doubtful, "unsure": sorted(map(str, k.unsure))}
                 for s, k in skills.items()}
             for t, skills in tests.items()}
 
@@ -344,6 +402,7 @@ def agreed(readings: list[dict]) -> dict:
                     votes[q] = answer
             key["answers"] = votes
             key["doubtful"] = any(k.get("doubtful") for k in keys)
+            key["unsure"] = sorted({q for k in keys for q in k.get("unsure", [])}, key=int)
             found.setdefault(test, {})[skill] = key
     return found
 
@@ -382,7 +441,10 @@ def squeezed(text: str) -> str:
 
 # The books' notes in an answer: not part of it.
 NOTE = re.compile(r"\((?=[^)]*\b(must|spelling|capital|accept|order|only|correct)\b)[^)]*\)?"
-                  r"|\b(in\s+(either|any)\s+order)\b", re.I)
+                  r"|\b(in\s+(either|any)\s+order)\b|\bor\s+(any\s+)?acceptable\s+alternatives?\b", re.I)
+# The same in capitals, before or after the answer: "MUST BE IN ORDER 20 (cm) 50 (cm)",
+# "1 July ALTERNATIVE FORMS ACCEPTED", "MUST STATE ALL THREE white, grey, brown".
+SHOUTED = re.compile(r"\b(MUST|ALTERNATIVE)\b(\s+[^\sa-z0-9(£$/]+)*")
 ABBREVIATIONS = {"true": "t", "false": "f", "notgiven": "ng", "yes": "y", "no": "n"}
 
 
@@ -394,7 +456,7 @@ def accepted(printed: str) -> set[str]:
     wrong answer the key warns about; "ACCEPT x" adds one. TRUE/FALSE/NOT GIVEN and YES/NO may be
     written as T/F/NG and Y/N, as on the answer sheet. "A (and) B" (two letters for one mark) takes
     both letters, in either order."""
-    text = NOTE.sub(" ", printed)
+    text = SHOUTED.sub(" ", NOTE.sub(" ", printed))
     if both := re.fullmatch(r"\s*([A-L])\s*(?:\(and\)|and|&|,)?\s*([A-L])\s*", text):
         a, b = both.group(1).lower(), both.group(2).lower()  # two letters for one mark, either order
         return {a + b, b + a, f"{a}and{b}", f"{b}and{a}"}
@@ -408,12 +470,16 @@ def accepted(printed: str) -> set[str]:
 
 def phrases(printed: str) -> set[str]:
     """The answers a printed answer stands for, as words: "(in) groups" is "groups" and "in groups"."""
-    text = re.sub(r"\bACCEPT\b", "//", NOTE.sub(" ", printed))
+    text = re.sub(r"\bACCEPT\b", "//", SHOUTED.sub(" ", NOTE.sub(" ", printed)))
     found = set()
     for whole in re.split(r"//|\s/\s|\bOR\b", text):
         whole = re.sub(r"\bNOT\b(?!\s*GIVEN).*", "", whole).strip(" ,;.")
         if whole:
             found |= _variants(whole)
+        sides = whole.split("/")
+        if len(sides) > 1 and all(len(re.sub(r"\([^)]*\)", " ", s).split()) >= 2 for s in sides):
+            for side in sides:  # "half hour/30 minutes": whole answers, as "//"
+                found |= _variants(side.strip())
     return found
 
 
@@ -425,8 +491,10 @@ def _variants(text: str) -> set[str]:
             choices.append(["", *part.strip("()").split("/")])
             continue
         options = part.split("/")
-        # "1/one-year": the "-year" belongs to every choice
+        # "1/one-year": the "-year" belongs to every choice ("$25/twenty-five": "-five" does not)
         suffix = next((o[o.index("-"):] for o in options if "-" in o), "")
+        if suffix[1:] in UNITS:
+            suffix = ""
         choices.append([o if "-" in o or not suffix else o + suffix for o in options])
     combos = itertools.islice(itertools.product(*choices), 256)
     return {" ".join(filter(None, c)) for c in combos}
@@ -445,9 +513,15 @@ TURNING = {"not", "no", "never", "less", "without", "nor", "neither", "hardly", 
 def words(text: str) -> list[str]:
     """An answer as its words, as they are compared: lower case, no marks, and a number written
     in words as its figures ("two weeks" is "2 weeks", "twenty-five" is "25"). "every second
-    day" and "every other day" are "every 2 days"."""
+    day" and "every other day" are "every 2 days". "$25" is "25 dollars" and "£50" "50 pounds";
+    "11.00" and "11 o'clock" are "11"; a date is "27 june" (dated())."""
+    text = re.sub(r"\$\s*([\d.,]+)(\s*(thousand|million))?", r"\1\2 dollars", text)
+    text = re.sub(r"£\s*([\d.,]+)(\s*(thousand|million))?", r"\1\2 pounds", text)
     plain = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
-    plain = re.sub(r"(?<=\d)[,.:](?=\d)", "", plain.replace("'", ""))  # "1,500" and "4.30" stay one number
+    plain = re.sub(r"\b(\d{1,2})[.:]00\b", r"\1", plain.replace("'", ""))  # "11.00" is "11"
+    plain = re.sub(r"\b(dollars|pounds)\s+(dollars?|pounds?)\b", r"\1", plain)  # "$25 dollars"
+    plain = re.sub(r"\s*\boclock\b", "", plain)
+    plain = re.sub(r"(?<=\d)[,.:](?=\d)", "", plain)  # "1,500" and "4.30" stay one number
     found, number = [], None  # number: [thousands done, the rest so far] while a number is read
     for word in re.findall(r"[a-z]+|\d+", plain) + [""]:
         value = UNITS.get(word, TENS.get(word))
@@ -477,7 +551,33 @@ def words(text: str) -> list[str]:
     for i in range(len(found) - 2):
         if found[i] == "every" and found[i + 1] in ("second", "other") and found[i + 2].isalpha():
             found[i + 1:i + 3] = ["2", found[i + 2].rstrip("s") + "s"]
-    return found
+    return dated(found)
+
+
+MONTHS = {m[:3]: m for m in "january february march april may june july august september october november december".split()}
+
+
+def dated(tokens: list[str]) -> list[str]:
+    """A date as "27 june", however it is written: "27th June", "the 27th of June", "June 27th",
+    "Jun 27". Other words are left as they are."""
+    month = lambda t: MONTHS.get(t[:3]) if t[:3] in MONTHS and (t in MONTHS.values() or t in MONTHS or t == "sept") else None  # noqa: E731
+    out = list(tokens)
+    i = 0
+    while i < len(out):
+        day = out[i].isdigit() and 1 <= int(out[i]) <= 31
+        if day and i + 1 < len(out) and out[i + 1] in ("st", "nd", "rd", "th"):
+            del out[i + 1]  # "27th" is read as "27", "th"
+        if day and i + 2 < len(out) and out[i + 1] == "of" and month(out[i + 2]):
+            del out[i + 1]  # "27 of june"
+        if day and i + 1 < len(out) and month(out[i + 1]):
+            out[i + 1] = month(out[i + 1])
+            if i > 0 and out[i - 1] == "the":
+                del out[i - 1]
+                i -= 1
+        elif day and i > 0 and month(out[i - 1]):
+            out[i - 1:i + 1] = [out[i], month(out[i - 1])]  # "june 27" is "27 june"
+        i += 1
+    return out
 
 
 def word_limit(instructions: str) -> tuple[int, bool] | None:
@@ -541,7 +641,7 @@ def right_answer(given: str, printed: str, limit: tuple[int, bool] | None = None
         return False
     if squeezed(given) in accepted(printed):
         return True
-    if len(squeezed(given)) > 2 and words(given) in [words(p) for p in phrases(printed)]:
+    if (len(squeezed(given)) > 2 or re.search(r"\d", given)) and words(given) in [words(p) for p in phrases(printed)]:
         return True
     return more_words(given, printed, limit, said)
 

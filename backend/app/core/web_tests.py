@@ -697,6 +697,29 @@ def choosable(key: dict[str, str], found: dict) -> dict[str, str]:
     return key
 
 
+def keyed(key: dict | None, found: dict) -> dict:
+    """A test's "key" and "any_order" from the book's key (key: answer_keys' key of the test for
+    its skill, or None) and the web page (found). The book's answers are the better ones to mark
+    with: they list every accepted answer ("check (over) (your) work/errors") and which answers
+    go in any order; the web page gives one ("check your work").
+
+    When all 40 were read for sure, the book's key is used (a question read but unsure takes the
+    web page's answer). Else OCR may have missed a number and shifted the answers after it: then
+    a question takes the book's answer only where it accepts the web page's, and an any-order
+    group of the book counts only when all its questions do."""
+    from .answer_keys import accepted, squeezed
+    if key is None:
+        return {"key": found["key"], "any_order": found["any_order"]}
+    unsure = set(key.get("unsure", []))
+    mine = {q: a for q, a in key["answers"].items() if q not in unsure and q in found["key"]}
+    if len(key["answers"]) == 40 and not key.get("doubtful"):
+        return {"key": choosable({**found["key"], **mine}, found),
+                "any_order": merged(key["any_order"], found["any_order"])}
+    agreed = {q: a for q, a in mine.items() if squeezed(found["key"][q]) in accepted(a)}
+    groups = [g for g in key["any_order"] if all(str(q) in agreed for q in g)]
+    return {"key": {**found["key"], **agreed}, "any_order": merged(groups, found["any_order"])}
+
+
 def merged(groups: list[list[int]], more: list[list[int]]) -> list[list[int]]:
     """Both lists of questions answered in any order, none twice."""
     return groups + [g for g in more if not any(set(g) & set(old) for old in groups)]
