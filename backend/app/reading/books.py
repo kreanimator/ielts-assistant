@@ -256,20 +256,17 @@ def with_web_text(book: dict) -> dict:
         content = found["content"]
         mine = next((t for t in book["tests"] if t["test"] == found["test"]), None)
         if mine is None:
-            key = keys.get(found["test"], {}).get("reading")
-            sure = key is not None and len(key["answers"]) == 40 and not key.get("doubtful")
             book["tests"].append({"test": found["test"], "kind": found["kind"], "pages": [], "parts": [],
-                                  "sections": found["sections"],
-                                  "key": web_tests.choosable(key["answers"], found) if sure else found["key"],
-                                  "any_order": web_tests.merged(key["any_order"] if sure else [], found["any_order"]),
-                                  "content": content})
+                                  "sections": found["sections"], "content": content,
+                                  **web_tests.keyed(keys.get(found["test"], {}).get("reading"), found)})
             continue
         starts = [p["page"] for p in mine["parts"]] + [10 ** 9]
         if len(mine["parts"]) == len(content["parts"]):
             for i, part in enumerate(content["parts"]):
                 part["pages"] = [n for n in mine["pages"] if starts[i] <= n < starts[i + 1]]
-        mine.update(content=content, sections=found["sections"], key=web_tests.choosable(mine["key"], found),
-                    any_order=web_tests.merged(mine["any_order"], found["any_order"]))
+        # the key as read now (answer_keys reads better than when the book was imported), else as then
+        fresh = keys.get(found["test"], {}).get("reading") or {**mine, "answers": mine["key"]}
+        mine.update(content=content, sections=found["sections"], **web_tests.keyed(fresh, found))
     book["tests"].sort(key=lambda t: (t["kind"], t["test"]))
     return book
 

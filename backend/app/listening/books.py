@@ -15,8 +15,9 @@ A Listening test needs three things:
    M4A (AAC) files; WMA files are named and left out (convert them to MP3 first).
 2. Its questions as text. They come from core/web_tests.py (make web-tests): OCR does not read
    the forms, tables and maps of the Listening pages. A test without them is left out.
-3. Its answer key: the book's own (core/answer_keys.py) when all 40 answers were read for
-   sure, else the web page's answers (see web_tests.choosable).
+3. Its answer key: the book's own (core/answer_keys.py), which lists every accepted answer and
+   the answers that go in any order; where it was not read for sure, the web page's answers
+   (see web_tests.keyed).
 
 Never commit or share these files: the books and their recordings are copyrighted.
 """
@@ -230,11 +231,8 @@ def load_books() -> list[dict]:
             found = web.get(test["test"])
             if found is None:
                 continue
-            key = keys.get(test["test"], {}).get("listening")
-            sure = key is not None and len(key["answers"]) == 40 and not key.get("doubtful")
             tests.append({**test, "sections": found["sections"], "content": found["content"],
-                          "key": web_tests.choosable(key["answers"], found) if sure else found["key"],
-                          "any_order": web_tests.merged(key["any_order"] if sure else [], found["any_order"])})
+                          **web_tests.keyed(keys.get(test["test"], {}).get("listening"), found)})
         if tests:
             books.append({**book, "tests": tests})
     return sorted(books, key=lambda b: b["title"])
