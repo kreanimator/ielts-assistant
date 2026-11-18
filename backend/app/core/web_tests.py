@@ -690,7 +690,9 @@ def choosable(key: dict[str, str], found: dict) -> dict[str, str]:
                 choices = words.get(group["type"]) or [o["letter"] for o in own or group["options"]]
                 if group["type"] in ("notes", "table", "gaps") or not choices:
                     continue
-                if not accepted(key[str(q)]) & {squeezed(c) for c in choices}:
+                one = key[str(q)].strip()
+                if not accepted(one) & {squeezed(c) for c in choices} or len(one) == 1 and one not in choices:
+                    # "a" for a choice "A" to "G": a letter the book prints in capitals, read wrongly
                     log.debug("%s test %s question %d: the book's key says %r, not a choice: the web page's %r is used",
                              found.get("slug", ""), found["test"], q, key[str(q)], found["key"][str(q)])
                     key[str(q)] = found["key"][str(q)]
