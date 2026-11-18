@@ -55,18 +55,25 @@ The text may contain OCR slips and parts of other pages: copy only the Speaking 
 Fix only clear OCR slips (like "Yo'u" or "p.Nhy"). Never invent questions."""
 
 
+def loose(*phrases: str) -> re.Pattern:
+    """A pattern for these phrases that a text layer may break with spaces anywhere: "PA RT 2",
+    "Yo u should say" (Cambridge 19)."""
+    return re.compile("|".join(r"\s*".join(map(re.escape, p.replace(" ", ""))) for p in phrases), re.I)
+
+
+PART_2, PART_3 = loose("part 2"), loose("part 3")
+CUE_CARD = loose("you should say")
+SPEAKING_TASK = loose("you should say", "describe", "discussion topics")
+
+
 def speaking_pages(texts: list[str]) -> list[int]:
     """Pages where a Speaking test starts, found by its structure: Part 2 and Part 3, with
     a cue card or discussion topics. (Headings are often garbled in scanned books.)"""
-    return [
-        i for i, text in enumerate(texts)
-        if re.search(r"part\s*2", text, re.I) and re.search(r"part\s*3", text, re.I)
-        and re.search(r"you should say|describe|discussion topics", text, re.I)
-    ]
+    return [i for i, text in enumerate(texts) if PART_2.search(text) and PART_3.search(text) and SPEAKING_TASK.search(text)]
 
 
 def has_cue_card(text: str) -> bool:
-    return bool(re.search(r"you should say", text, re.I))
+    return bool(CUE_CARD.search(text))
 
 
 async def read_test(texts: list[str], page: int) -> dict:
