@@ -485,6 +485,9 @@ def phrases(printed: str) -> set[str]:
 
 def _variants(text: str) -> set[str]:
     """The answers one alternative stands for: brackets optional, word/word a choice."""
+    while (inner := re.sub(r"\(([^()]*)\(([^()]*)\)([^()]*)\)", r"(\1) (\2) (\3)", text)) != text:
+        text = inner  # "((the) year) 2000": every word of it optional
+    text = text.replace("()", "")
     choices = []
     for part in re.findall(r"\([^)]*\)|[^\s()]+", text):
         if part.startswith("("):

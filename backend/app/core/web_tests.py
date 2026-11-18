@@ -713,11 +713,42 @@ def keyed(key: dict | None, found: dict) -> dict:
     unsure = set(key.get("unsure", []))
     mine = {q: a for q, a in key["answers"].items() if q not in unsure and q in found["key"]}
     if len(key["answers"]) == 40 and not key.get("doubtful"):
+        for q in misread(mine, found):
+            log.debug("%s test %s question %s: the book's key says %r, read wrongly: the web page's %r is used",
+                      found.get("slug", ""), found["test"], q, mine[q], found["key"][q])
+            del mine[q]
         return {"key": choosable({**found["key"], **mine}, found),
                 "any_order": merged(key["any_order"], found["any_order"])}
     agreed = {q: a for q, a in mine.items() if squeezed(found["key"][q]) in accepted(a)}
     groups = [g for g in key["any_order"] if all(str(q) in agreed for q in g)]
     return {"key": {**found["key"], **agreed}, "any_order": merged(groups, found["any_order"])}
+
+
+WORD_GROUPS = ("notes", "table", "gaps")  # answered with words, not a letter or TRUE/FALSE
+
+
+def misread(mine: dict[str, str], found: dict) -> list[str]:
+    """The questions answered with words where the book's key (mine) was read wrongly by OCR:
+    it differs from the web page's answer, and either it is a letter or TRUE/NOT GIVEN where
+    words are asked for (the answers after a missed number slid up: "NOT GIVEN" for "temporal
+    lobes"), or the web page's answer is in the recording or passage while no form of the
+    book's is ("šuo" for "long", "linp" for "dull"). Letters cannot be told apart this way."""
+    from .answer_keys import ABBREVIATIONS, accepted, phrases, said, squeezed, words
+    text = {q: set(tokens) for q, tokens in said(found["content"]).items()}
+    choice = re.compile(r"[A-L]|[ivx]+|" + "|".join(ABBREVIATIONS) + "|" + "|".join(ABBREVIATIONS.values()))
+    wrong = []
+    for part in found["content"]["parts"]:
+        for group in part["groups"]:
+            if group["type"] not in WORD_GROUPS:
+                continue
+            for q in map(str, range(group["first"], group["last"] + 1)):
+                web, book = found["key"].get(q, ""), mine.get(q)
+                if book is None or squeezed(web) in accepted(book) or choice.fullmatch(squeezed(web)):
+                    continue
+                inside = lambda phrase: bool(words(phrase)) and set(words(phrase)) <= text.get(q, set())  # noqa: E731
+                if choice.fullmatch(squeezed(book)) or inside(web) and not any(map(inside, phrases(book))):
+                    wrong.append(q)
+    return wrong
 
 
 def merged(groups: list[list[int]], more: list[list[int]]) -> list[list[int]]:
