@@ -1,9 +1,10 @@
 """Topics suggested in the topic field: our own A-Z list, plus the topic names of the
-tests imported from your books (they stay on your computer). The examiner writes the
-questions for a topic. (The "By letter" mode uses the topic cards of
+tests imported from your books and of the question bank from mock-test videos (they stay
+on your computer; see videos.py). The examiner writes the questions for a topic, unless
+the bank has real ones. (The "By letter" mode uses the topic cards of
 eslconversationquestions.com instead, downloaded by you: see esl.py.)
 """
-from . import books
+from . import books, videos
 
 TOPICS = [
     "Advertising", "Animals", "Apps", "Architecture", "Art",
@@ -37,12 +38,14 @@ TOPICS = [
 def all_topics() -> list[dict]:
     """Our topics and your books' topic names, A-Z, without repeats."""
     found = {t.lower(): {"name": t, "source": "app"} for t in TOPICS}
-    for book in books.load_books():
-        for test in book["tests"]:
-            for part in ("part1", "part3"):
-                for t in test[part]:
-                    name = t["topic"].strip().rstrip(".")
-                    name = name[:1].upper() + name[1:]
-                    if 2 < len(name) <= 40:
-                        found.setdefault(name.lower(), {"name": name, "source": "books"})
+    bank = videos.load_bank()
+    groups = [("books", [t for b in books.load_books() if b["id"] != videos.BOOK_ID
+                         for test in b["tests"] for part in ("part1", "part3") for t in test[part]]),
+              ("videos", bank["part1"] + bank["part3"])]  # the question bank's topics (see videos.py)
+    for source, found_topics in groups:
+        for t in found_topics:
+            name = t["topic"].strip().rstrip(".")
+            name = name[:1].upper() + name[1:]
+            if 2 < len(name) <= 40:
+                found.setdefault(name.lower(), {"name": name, "source": source})
     return sorted(found.values(), key=lambda t: t["name"].lower())

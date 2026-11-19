@@ -28,7 +28,9 @@ WebSocket protocol on /ws/speaking:
   server → client  JSON  {"type": "ready", "session": "<id>"}       models loaded, examiner about to speak
                    JSON  {"type": "listening"}                      the candidate started speaking
                    JSON  {"type": "partial", "text": "..."}         live transcript while they speak
-                   JSON  {"type": "transcript", "text": "..."}      the finished answer
+                   JSON  {"type": "transcript", "text": "...",      the finished answer; "answer" is its
+                          "answer": 0}                              number, null for what is not a test
+                                                                    answer (the name, "Pardon?")
                    JSON  {"type": "nothing_heard"}                  "done" came, but no words were said:
                                                                     the turn goes on
                    JSON  {"type": "examiner", "text": "...", "new": true}   one sentence of the reply;
@@ -60,15 +62,16 @@ import contextlib
 import json
 import logging
 import math
+import random
 import time
 
 import numpy as np
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from ..core import llm, modules, storage
-from . import books, config, drills, esl, exam, fluency, prosody, report, topics
+from . import books, config, drills, esl, exam, fluency, prosody, report, topics, videos
 from .analyst import analyse
-from .examiner import MODES, Conversation
+from .examiner import MODES, Conversation, asks_repeat
 from .pronunciation import PronunciationScorer
 from .stt import Transcriber, Transcript
 from .tts import Speaker
@@ -158,7 +161,9 @@ async def session(ws: WebSocket):
         card = esl.card(start.get("esl") or "", start.get("level") or "mixed") if mode == "letter" else None
         if mode == "letter" and not card:
             mode = "free"  # the topic cards are not downloaded
-        if test:
+        if not test and mode in ("part1", "part2", "part3", "exam"):
+            test = session_test(mode, topic)
+        if test and "test" in test:
             topic = f"{test['book']}, Test {test['test']}"
         if card:
             topic = card["name"]
@@ -211,6 +216,7 @@ class Talk:
         self.analyse_answers = True  # off for sound drills: reading aloud needs no grammar feedback
         self.focus = None  # a language drill's focus, for the analyst
         self.target = None  # a sound drill's sound, for the pronunciation check
+        self.counts = True  # the answer being heard is a test answer
         self.turns = TurnDetector(silence_ms)
 
     def in_background(self, work):
@@ -330,7 +336,7 @@ class Talk:
     # ---- the candidate ----
 
     async def answer(self, question: str, cut_at: float | None = None, limit: float | None = None,
-                     silence_ms: int | None = None) -> str | None:
+                     silence_ms: int | None = None, counts: bool = True) -> str | None:
         """Waits for the candidate's answer and returns its text.
 
         cut_at (time.monotonic()) and limit (seconds after the mic opens) end the answer
@@ -341,6 +347,7 @@ class Talk:
         self.turns.reset()
         self.turns.set_silence(max(silence_ms or 0, self.silence_ms))
         self.recorded = None
+        self.counts = counts
         mic_open = False
         partial, last_partial = None, 0.0
         while True:
@@ -420,13 +427,19 @@ class Talk:
         return self.turns.current()
 
     async def hear(self, question: str, audio: np.ndarray) -> str:
-        """Transcribes one answer, saves it and starts its checks. Returns "" for no words."""
+        """Transcribes one answer, saves it and starts its checks. Returns "" for no words.
+        What is not a test answer (the candidate's name, "Could you repeat that?") is saved
+        without an answer number, and not checked."""
         transcript = await transcribe(audio, with_words=True)
         text = transcript.text
         log.info("candidate: %s", text)
         if not text:
             return ""
-        await self.ws.send_json({"type": "transcript", "text": text})
+        if not self.counts or (not self.target and asks_repeat(text)):
+            await self.ws.send_json({"type": "transcript", "text": text, "answer": None})
+            storage.add_message(self.session_id, "candidate", text)
+            return text
+        await self.ws.send_json({"type": "transcript", "text": text, "answer": self.answers})
         answer = self.answers
         self.answers += 1
         storage.add_message(self.session_id, "candidate", text, answer)
@@ -466,6 +479,22 @@ class Talk:
 async def transcribe(audio: np.ndarray, with_words: bool = False) -> Transcript:
     async with transcribe_lock:
         return await asyncio.to_thread(transcriber.transcribe, audio, with_words)
+
+
+def session_test(mode: str, topic: str | None) -> dict | None:
+    """Real examiners' questions when no book test was chosen (see videos.py; none until
+    `make examiner-videos`): a whole mock test without a topic; with a topic, the question
+    bank's questions on it, for Part 1 (then two more topics, as in the test) and Part 3."""
+    if not topic:
+        return videos.random_test()
+    part = {"part1": "part1", "part3": "part3"}.get(mode)
+    found = part and videos.bank_topic(part, topic)
+    if not found:
+        return None
+    if part == "part1":
+        others = [t for t in videos.load_bank()["part1"] if t["topic"] != found["topic"] and len(t["questions"]) >= 3]
+        return {"part1": [found, *[{**t, "questions": t["questions"][:3]} for t in random.sample(others, min(2, len(others)))]]}
+    return {"part3": [found]}
 
 
 def examiner_name(voice: str) -> str:

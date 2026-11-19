@@ -127,6 +127,9 @@ practise: everything runs on your computer.
   (see above). The band calibration was done with the 9B model, so bands from the 4B
   model are less certain.
 - **Without the topic cards:** `make install ESL=0` skips them.
+- **The examiner videos:** `make install` asks whether to import them (see
+  [Real examiners' questions](#real-examiners-questions)); `EXAMINER=1` or `EXAMINER=0`
+  answers for you.
 - **More accurate Whisper on a fast Mac:** `WHISPER_MODEL=large-v3-turbo make start` is
   more accurate, but slower on the CPU.
 - **Other Linux GPUs:** AMD and Intel GPUs use the Vulkan build of llama.cpp; the
@@ -213,8 +216,9 @@ read for sure, or whose answers differ from your book's key, is left out and nam
   timed like Part 1.
 
 Corrections stay hidden until the end, and then the band report opens. Without a
-book test, the cue card is one of the app's own cards, or one written for the topic
-you type. **Part 2 · Long turn** practises the long turn on its own, and there you
+book test, it is a real examiner's test from the mock-test videos if you imported them (see
+[Real examiners' questions](#real-examiners-questions)); otherwise the cue card is one of the
+app's own cards, or one written for the topic you type. **Part 2 · Long turn** practises the long turn on its own, and there you
 may start before the minute is over. The times can be changed for practice; see
 `PART1_SECONDS` and the settings below it in [backend/app/speaking/config.py](backend/app/speaking/config.py).
 
@@ -233,6 +237,38 @@ The site's terms allow copying its free questions for your own lessons, with a l
 the source, but not publishing them as a collection. So the questions are downloaded
 to your computer for your own practice, are never part of this repository, and each
 card links to its page on the site. Thanks to ESL Conversation Questions for them.
+
+### Real examiners' questions
+
+The examiner talks like the examiners in recorded mock tests: the name first ("And what can
+I call you?"), three questions on a Part 1 topic and then "Now let's move on to talk about
+...", no comments on your answers (an "Okay." at most, often nothing), "Why?" after a short
+answer, "Why or why not?" in Part 3, and a question you did not catch repeated word for word
+(say "Sorry, could you repeat the question?"). This was learnt, in our own words, from 123
+mock tests of the [Ross IELTS Academy](https://www.youtube.com/@RossIELTSAcademy) YouTube
+channel. Your name and requests to repeat are not marked as answers.
+
+The questions themselves can come from those videos too, if you import them:
+
+```sh
+make examiner-videos
+```
+
+It reads the channel's mock tests (a real examiner runs Parts 1 to 3) and its videos of
+recent test questions: YouTube's captions, or for older videos the audio, transcribed with
+Whisper and then deleted. The LLM copies each test's questions (it starts the LLM server if
+it is not running). It takes about an hour with an NVIDIA GPU, longer without one.
+`make install` asks whether to do it; run it again later to add the channel's new videos.
+Then:
+
+- **Full exam** and the single parts started without a book test or a topic use one of these
+  tests. They are also listed under **Questions** as *Mock tests (videos)*.
+- **Part 1** and **Part 3** with a topic the videos have (*Street markets*, *Wildlife*, ...)
+  ask the real questions on it; the topic field suggests them.
+
+YouTube's terms do not allow downloading videos, so this is for your own study only:
+everything stays in `data/private/examiner/`, is never part of this repository, and must
+not be shared. Thanks to Ross IELTS Academy for the videos.
 
 ### Topics
 

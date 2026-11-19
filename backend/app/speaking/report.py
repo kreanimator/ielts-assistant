@@ -177,7 +177,7 @@ def measured(answers: list[dict]) -> dict:
 
 
 async def build(session: dict) -> dict:
-    answers = [m for m in session["messages"] if m["role"] == "candidate"]
+    answers = [m for m in session["messages"] if m["role"] == "candidate" and m["answer"] is not None]  # not the name
     stats = measured(answers)
     if session.get("mode") == "drill":
         return {"stats": stats, "enough": False,
