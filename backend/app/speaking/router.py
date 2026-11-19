@@ -10,7 +10,7 @@ HTTP:
 
 WebSocket protocol on /ws/speaking:
   client → server  JSON  {"type": "start", "mode": "part1", "voice": "bf_emma", "topic": "travel",
-                          "book": "cambridge-ielts-08", "test": 2, "drill": "sound:θ",
+                          "book": "ielts-08", "test": 2, "drill": "sound:θ",
                           "esl": "advice", "level": "mixed", "silence_ms": 2500, "manual": false}
                          (all optional; mode is one of /api/speaking/options "modes"; book and test pick
                           a real test's questions instead of a topic, for every mode but free;

@@ -4,7 +4,7 @@ A task is a dict:
   {"task": 1 or 2, "kind": "letter" or "essay", "prompt": "...", "bullets": [...] (letters),
    "begin": "Dear Sir or Madam," (letters), "minutes": 20 or 40, "words": 150 or 250,
    "source": "book" or "new", "book": "<book id>", "book_title": "...", "test": "2",
-   "title": "Cambridge IELTS 8 · Test 2"}
+   "title": "IELTS 8 · Test 2"}
 
 Task 1 is the General Training letter: the Academic Task 1 describes a chart, which the books
 print as a picture we cannot show, so the Academic tests give only their Task 2 essays.

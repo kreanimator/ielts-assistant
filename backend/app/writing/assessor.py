@@ -37,7 +37,7 @@ UNANSWERED_WORDS = 20  # in the full test, this many words or fewer is band 1 (n
 MAX_CORRECTED = 12  # words in one correction: longer is a rewrite, not a correction
 BANDS = [b / 2 for b in range(2, 19)]  # 1.0 .. 9.0
 # Added to each of the LLM's bands. Fitted with scripts/calibrate_writing.py on 36 sample answers
-# in the Cambridge books (one examiner band per answer, so one shift for all four criteria; shift
+# in the books (one examiner band per answer, so one shift for all four criteria; shift
 # only, as in Speaking: a slope would stretch the bands beyond what the samples cover).
 # Uncorrected, the LLM is 0.75 bands too low; with the shift fitted without each answer, the
 # bias is +0.06 and the average error 0.58 bands (see the README). Fit it again after any change

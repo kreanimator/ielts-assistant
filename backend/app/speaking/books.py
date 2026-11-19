@@ -1,6 +1,6 @@
 """Imports the Speaking tests from your own IELTS books (PDF) and loads them for practice.
 
-    python -m app.speaking.books "path/to/Cambridge IELTS 8.pdf" ...      (or: make books BOOKS="...")
+    python -m app.speaking.books "path/to/IELTS 8.pdf" ...      (or: make books BOOKS="...")
 
 1. Reads each page's text (see core/pages.py: the text layer, or OCR for scanned pages).
 2. Finds the pages with a Speaking test: "Speaking", "Part 2" and a cue card.
@@ -57,7 +57,7 @@ Fix only clear OCR slips (like "Yo'u" or "p.Nhy"). Never invent questions."""
 
 def loose(*phrases: str) -> re.Pattern:
     """A pattern for these phrases that a text layer may break with spaces anywhere: "PA RT 2",
-    "Yo u should say" (Cambridge 19)."""
+    "Yo u should say" (seen in one book)."""
     return re.compile("|".join(r"\s*".join(map(re.escape, p.replace(" ", ""))) for p in phrases), re.I)
 
 

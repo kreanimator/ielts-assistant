@@ -256,7 +256,7 @@ class _Key:
 def parse(page_lines: list[list[str]]) -> dict[str, dict]:
     """The keys in a book's key pages (each page's lines, see lines()), by test and skill.
 
-    Some books (Cambridge 2) print no "TEST n" over their keys: a page is one test, its
+    Some older books print no "TEST n" over their keys: a page is one test, its
     Listening key beside its Reading key. Then each LISTENING heading starts the next test, and
     only the Listening keys are read: the Reading columns run into each other on those pages."""
     tests: dict[str, dict[str, _Key]] = {}
