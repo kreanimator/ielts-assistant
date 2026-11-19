@@ -143,7 +143,7 @@ reading-books:
 
 # Import the recordings of your books' Listening tests (their CDs as MP3 or M4A files):
 #   make listening-books AUDIO='~/Books/IELTS'     the folder that holds a folder for each book,
-#                                                  named with its number ("Cambridge IELTS 10")
+#                                                  named with its number ("IELTS 10")
 # They are copied to data/private/books/<book>/listening/ (about 100 MB a book). A test also
 # needs its questions as text: see web-tests below.
 listening-books:

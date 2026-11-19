@@ -7,7 +7,7 @@ Listening tests.
 A Listening test needs three things:
 
 1. Its recordings. The folder given is searched for a folder of each imported book (its
-   number in the name: "Cambridge IELTS 10"), and that one for audio files. tracks() works out
+   number in the name: "IELTS 10"), and that one for audio files. tracks() works out
    which file is which test and part, from the names ("Test 3 Section 2", "test1_audio4") or,
    for CD tracks without names, from their order (four parts a test, four tests). They are
    copied to data/private/books/<book>/listening/ and listed in <book>.listening.json with
@@ -163,7 +163,7 @@ def _m4a_seconds(path: Path) -> float:
 
 def book_folders(root: Path) -> dict[int, Path]:
     """The folders under `root` (or `root` itself) named with a book's number, by that number:
-    "Cambridge IELTS 10" → 10. The last number in the name counts ("IELTS 7 CD" has one)."""
+    "IELTS 10" → 10. The last number in the name counts ("IELTS 7 CD" has one)."""
     found = {}
     for path in [root, *sorted(p for p in root.iterdir() if p.is_dir())]:
         numbers = re.findall(r"(?<!\d)\d{1,2}(?!\d)", path.name)

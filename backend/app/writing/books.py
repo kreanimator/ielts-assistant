@@ -1,7 +1,7 @@
 """Imports the Writing tests from your own IELTS books, with the books' model and sample
 answers, and loads them for practice.
 
-    python -m app.writing.books "path/to/Cambridge IELTS 11 GT.pdf" ...   (make books does Speaking and Writing)
+    python -m app.writing.books "path/to/IELTS 11 GT.pdf" ...   (make books does Speaking and Writing)
     python -m app.writing.books --cached       every book already read once (no PDFs needed)
 
 1. The page texts come from core/pages.py (cached by any earlier import).

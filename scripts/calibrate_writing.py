@@ -149,7 +149,7 @@ def main():
     for key, reason in left_out:
         print(f"  {key}: {reason}")
     if len(items) < 10:
-        sys.exit("Too few sample answers: import your Cambridge books with make books first.")
+        sys.exit("Too few sample answers: import your IELTS books with make books first.")
     CACHE.parent.mkdir(parents=True, exist_ok=True)
     cache = json.loads(CACHE.read_text()) if CACHE.exists() else {}
     asyncio.run(judge_all(items, cache, args.rejudge))

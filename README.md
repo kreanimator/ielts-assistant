@@ -157,9 +157,8 @@ make books BOOKS='~/Books/IELTS/*.pdf'
 Scanned books are read with OCR, about 1 second per page; books with a text layer
 take under a minute. The tests are saved in `data/private/books/`, which git ignores.
 
-- **Speaking:** books in the three-part Speaking format work (Cambridge IELTS 3 and
-  later); the older role-play format of Cambridge IELTS 1 and 2 is skipped. Choose a
-  training mode and pick a test under **Questions**.
+- **Speaking:** books in the three-part Speaking format work; the oldest books, with a
+  role-play format, are skipped. Choose a training mode and pick a test under **Questions**.
 - **Writing:** every test's General Training Task 1 (the letter) and Task 2 (the essay),
   and the Academic tests' Task 2 essays (their Task 1 needs a chart, which is a picture).
   The books' answers come too: candidates' sample answers with their band and the
@@ -431,10 +430,9 @@ in the margin), and the questions are cut into their groups by their headings ("
 read three times at different sizes, and an answer counts only when two readings agree (OCR
 mixes up "iii" and "viii"; a big serif "A" read as "V" loses to the "A" another reading saw).
 A test is offered only when all 40 of its answers were read for sure and each letter answer
-is one of its question's choices, so some tests are left out, and Cambridge IELTS 1, 2 and 4
-print their keys in other layouts that are not read at all. From Cambridge IELTS 1–13 and 15
-and IELTS 13 General Training, 22 tests are offered (12 Academic, 10 General Training); 20 of
-them as text.
+is one of its question's choices, so some tests are left out, and a few older books print
+their keys in other layouts that are not read at all. From the 15 books it was tried on,
+22 tests are offered (12 Academic, 10 General Training); 20 of them as text.
 
 For trying the app, `READING_TEST_MINUTES=2 make run` shortens the test.
 
@@ -468,7 +466,7 @@ make web-tests URL=<the address of the site's list of tests>   # the questions a
 ```
 
 `make listening-books` looks in that folder for a folder of each imported book (its number in
-the name, "Cambridge IELTS 10") and copies its recordings to `data/private/`. It tells the
+the name, "IELTS 10") and copies its recordings to `data/private/`. It tells the
 files apart by their names ("Test 3 Section 2", "test1_audio4") or, for CD tracks without
 names, by their order (four parts a test; a CD's short introduction track is skipped); a
 book with one file a test works too. Browsers play MP3 and M4A: WMA files are named and left
@@ -537,9 +535,9 @@ Limits to keep in mind:
 
 ### How realistic are the Writing bands?
 
-They are checked against the sample answers printed in the Cambridge books, each with the band
+They are checked against the sample answers printed in the books, each with the band
 an examiner gave it: `make calibrate-writing` (needs your books imported and the LLM server).
-Of the 60 sample answers imported from Cambridge IELTS 1–13 and 15, 36 could be used: the others were
+Of the 60 sample answers imported from 14 books, 36 could be used: the others were
 cut off at a page break, ran into other text, had the examiner's comment mixed in, or were
 garbled by OCR (the script lists each with the reason).
 

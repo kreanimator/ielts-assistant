@@ -1,6 +1,6 @@
 """Imports the Reading tests from your own IELTS books, and loads them.
 
-    python -m app.reading.books "path/to/Cambridge IELTS 10.pdf" ...   (make books does every module)
+    python -m app.reading.books "path/to/IELTS 10.pdf" ...   (make books does every module)
     python -m app.reading.books --cached     the books imported before (no PDFs needed if their
                                              pages were saved as pictures once)
 

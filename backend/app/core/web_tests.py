@@ -51,8 +51,8 @@ def cache_dir() -> Path:
 # ---------------------------------------------------------------- which tests
 
 def my_books() -> dict[int, list[str]]:
-    """The books imported from your PDFs, by their number: {10: ["cambridge-ielts-10"],
-    11: ["cambridge-ielts-11-ac", "cambridge-ielts-11-gt"]}."""
+    """The books imported from your PDFs, by their number: {10: ["ielts-10"],
+    11: ["ielts-11-ac", "ielts-11-gt"]}."""
     found: dict[int, list[str]] = {}
     for path in sorted(pages.books_dir().glob("*.pages.json")):
         book_id = path.name.removesuffix(".pages.json")
