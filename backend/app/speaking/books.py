@@ -111,10 +111,13 @@ async def import_book(path: Path) -> dict:
 
 
 def load_books() -> list[dict]:
-    if not pages.books_dir().exists():
-        return []
-    paths = [p for p in pages.books_dir().glob("*.json") if p.name.count(".") == 1]  # not <book>.pages.json
-    return sorted((json.loads(p.read_text()) for p in paths), key=lambda b: b["title"])
+    """Your books' Speaking tests, then the mock tests from videos (see videos.py) if imported."""
+    from . import videos  # it imports this module
+    found = []
+    if pages.books_dir().exists():
+        paths = [p for p in pages.books_dir().glob("*.json") if p.name.count(".") == 1]  # not <book>.pages.json
+        found = sorted((json.loads(p.read_text()) for p in paths), key=lambda b: b["title"])
+    return found + [b for b in [videos.load_book()] if b]
 
 
 def find_test(book_id: str, number: int) -> dict | None:

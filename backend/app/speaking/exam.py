@@ -8,23 +8,27 @@ Full exam (times from config.py):
   Part 3  discussion linked to the Part 2 topic, timed like Part 1.
 No corrections are shown during the exam; the report comes at the end.
 
-The examiner's fixed lines below are our own wording, not the official examiner script.
+The examiner's fixed lines below are our own wording, not the official examiner script;
+what they say and when follows examiners in recorded mock tests (see examiner.py).
 """
 import random
 import time
 
 from ..core import llm
 from . import config, drills
-from .examiner import Conversation
+from .examiner import Conversation, asks_repeat
 
-PART2_INTRO = ("Now I'm going to give you a topic, and I'd like you to talk about it for one to two "
-               "minutes. You have one minute to prepare first, and you can make some notes if you wish. "
-               "Here is your topic.")
-PART2_START = ("All right, your preparation time is over. Remember, you have one to two minutes. "
-               "I'll stop you when the time is up. Please start speaking now.")
+PART2_INTRO = ("Now, in Part 2, I'm going to give you a topic, and I'd like you to talk about it for one to "
+               "two minutes. Before you talk, you'll have one minute to think about what you're going to say, "
+               "and you can make some notes if you wish. Do you understand?")
+PART2_TOPIC = "All right. Here is your topic. Your one minute starts now."
+PART2_START = ("All right, your one minute is over. You can talk for up to two minutes, and don't worry if "
+               "I stop you. Please start speaking now.")
 PART2_THANKS = "Thank you."
 PART2_TIME_UP = "Thank you, that's the time."
-EXAM_END = "That is the end of the speaking test. Thank you, and goodbye."
+PART3_INTRO = ("Now let's move on to Part 3. We've been talking about {subject}, and I'd now like to ask you "
+               "some more general questions related to this.")
+EXAM_END = "That's the end of the speaking test. Goodbye."
 
 # Original cue cards, used when no book test is chosen.
 CUE_CARDS = [
@@ -133,8 +137,7 @@ async def exam(talk, name: str, topic: str | None, test: dict | None):
 
     await talk.part("Part 3 · Discussion")
     start = time.monotonic()
-    await talk.say(f"We've been talking about {subject(card)}. Now I'd like to ask you "
-                   "some more general questions related to this.", done=False)
+    await talk.say(PART3_INTRO.format(subject=subject(card)), done=False)
     await interview(talk, Conversation("part3", name, test=test, exam=True, task=card["task"]),
                     wrap_up_at=start + config.PART3_SECONDS - config.WRAP_UP_SECONDS,
                     cut_at=start + config.PART3_SECONDS)
@@ -169,7 +172,12 @@ async def interview(talk, conversation: Conversation, wrap_up_at: float | None =
         await talk.examiner_turn(conversation)
         if conversation.over:
             return
-        heard = await talk.answer(conversation.last_question(), cut_at=cut_at)
+        heard = await talk.answer(conversation.last_question(), cut_at=cut_at, counts=conversation.answer_counts())
+        while heard and asks_repeat(heard) and not (wrap_up_at and time.monotonic() >= wrap_up_at):
+            line = conversation.repeat_line()  # examiners repeat the question word for word
+            conversation.add_repeat(heard, line)
+            await talk.say(line)
+            heard = await talk.answer(line, cut_at=cut_at, counts=conversation.answer_counts())
         if heard:
             conversation.add_candidate(heard)
             answers += 1
@@ -180,7 +188,12 @@ async def interview(talk, conversation: Conversation, wrap_up_at: float | None =
 async def part2(talk, name: str, card: dict, exam_mode: bool):
     if not exam_mode:
         await talk.part("Part 2 · Long turn")
-    await talk.say(PART2_INTRO, done=False)
+    await talk.say(PART2_INTRO)
+    heard = await talk.answer(PART2_INTRO, counts=False)
+    if heard and (asks_repeat(heard) or heard.strip(" .!").lower() in ("no", "not really", "sorry")):
+        await talk.say("Sure. " + PART2_INTRO.replace("Now, in Part 2, I'm", "I'm", 1))  # once more
+        await talk.answer(PART2_INTRO, counts=False)
+    await talk.say(PART2_TOPIC, done=False)
     await talk.cue_card(card, config.PREP_SECONDS, skippable=not exam_mode)
     await talk.say(PART2_START)
     heard = await talk.answer(card_text(card), limit=config.LONG_TURN_SECONDS,

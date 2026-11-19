@@ -32,3 +32,6 @@ cryptography==50.0.2
 pypdfium2==5.15.2
 rapidocr==3.10.0
 onnxruntime==1.31.1
+
+# Examiner examples from YouTube mock tests (make examiner-videos; Unlicense)
+yt-dlp==2026.10.26

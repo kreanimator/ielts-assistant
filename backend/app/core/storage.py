@@ -147,7 +147,7 @@ def list_sessions(module: str | None = None) -> list[dict]:
     """Newest first; only one module's with `module`."""
     with connect() as db:
         rows = db.execute(
-            """SELECT s.*, (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id AND m.role = 'candidate') AS answers
+            """SELECT s.*, (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id AND m.role = 'candidate' AND m.answer IS NOT NULL) AS answers
                FROM sessions s WHERE ? IS NULL OR s.module = ? ORDER BY s.started_at DESC""",
             (module, module),
         ).fetchall()
@@ -157,7 +157,7 @@ def list_sessions(module: str | None = None) -> list[dict]:
 def get_session(session_id: str) -> dict | None:
     with connect() as db:
         row = db.execute(
-            """SELECT s.*, (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id AND m.role = 'candidate') AS answers
+            """SELECT s.*, (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id AND m.role = 'candidate' AND m.answer IS NOT NULL) AS answers
                FROM sessions s WHERE s.id = ?""",
             (session_id,),
         ).fetchone()

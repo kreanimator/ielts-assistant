@@ -27,13 +27,15 @@ else
 endif
 LLAMA_DIR = tools/llama-$(LLAMA_VERSION)-$(LLAMA_BUILD)
 
-.PHONY: install install-esl start setup models app-models llm frontend frontend-dev run books writing-books reading-books listening-books web-tests esl-topics license-check \
+.PHONY: install install-esl install-examiner examiner-videos start setup models app-models llm frontend frontend-dev run books writing-books reading-books listening-books web-tests esl-topics license-check \
 	calibrate-pronunciation calibrate-bands calibrate-writing check-platform
 
 # Everything in one go: Python environment, models, llama.cpp, the web app and the topic
-# cards for the "By letter" mode (ESL=0 skips those).
+# cards for the "By letter" mode (ESL=0 skips those). It also asks whether to import the
+# examiner examples from YouTube mock tests (EXAMINER=1 or EXAMINER=0 answers for you).
 ESL ?= 1
-install: check-platform setup models app-models frontend $(if $(filter 1,$(ESL)),install-esl)
+EXAMINER ?=
+install: check-platform setup models app-models frontend $(if $(filter 1,$(ESL)),install-esl) install-examiner
 	@echo; echo "Installed. Start the app with: make start"
 
 # The topic cards, unless they are already there. A failure does not stop the install.
@@ -42,6 +44,16 @@ install-esl:
 	else echo "Downloading the topic cards for the By letter mode (about 2.5 minutes) ..."; \
 		PYTHONPATH=backend $(PYTHON) -m app.speaking.esl || \
 		echo "Warning: could not download the topic cards. Try again later with: make esl-topics"; fi
+
+# Asked once: the real examiners' questions from YouTube mock tests (see examiner-videos).
+install-examiner:
+	@if [ -s data/private/examiner/tests.json ]; then echo "Examiner examples: already imported (make examiner-videos adds new videos)"; \
+	else answer="$(EXAMINER)"; \
+		if [ -z "$$answer" ] && [ -t 0 ]; then \
+			printf "\nImport real examiners' questions from the mock-test videos of the Ross IELTS Academy\nYouTube channel, for your own study? It takes about an hour with an NVIDIA GPU, longer\nwithout one. You can do it later with: make examiner-videos   [y/N] "; read answer; fi; \
+		case "$$answer" in [yY]*|1) $(MAKE) -s examiner-videos || \
+			echo "Warning: the examiner import stopped. Run it again later with: make examiner-videos";; \
+		*) echo "Examiner examples: skipped (make examiner-videos imports them later)";; esac; fi
 
 # Start the LLM server and the backend, and open the app in the browser. Ctrl+C stops both.
 start:
@@ -155,6 +167,15 @@ writing-books:
 # practice only: they are saved in data/private/esl/.
 esl-topics:
 	PYTHONPATH=backend $(PYTHON) -m app.speaking.esl
+
+# Real examiners' questions and manner from the mock-test videos of the Ross IELTS Academy
+# YouTube channel: captions (or the audio, through Whisper, then deleted), then the LLM copies
+# each test's questions (it starts the LLM server if needed). For your own study only:
+# YouTube's terms do not allow downloading videos, so everything stays in
+# data/private/examiner/, never in the repository. Run it again to add the channel's new
+# videos; those done before are skipped. See backend/app/speaking/videos.py.
+examiner-videos:
+	PYTHONPATH=backend $(PYTHON) -m app.speaking.videos
 
 # Check the Pronunciation band against experts' scores (speechocean762, CC BY 4.0, about 500 MB).
 CALIBRATION = data/private/calibration

@@ -218,6 +218,18 @@ without any books.
    dropped. Gap-fills are marked by the code; a corrected sentence that is not the expected
    one is judged by the LLM. The last score is kept per type
 
+26. ✅ Speaking: an examiner like the real ones. `make examiner-videos` reads the mock tests of
+   the Ross IELTS Academy YouTube channel (captions, or the audio through Whisper) and its
+   videos of recent questions, for your own study, into data/private/examiner/; `make install`
+   asks once. The LLM copies each mock test's questions into a test (listed with the books as
+   *Mock tests (videos)*, used when no book test or topic is chosen) and the question videos'
+   questions into a bank, used for Part 1 and Part 3 topics it has. What the 123 mock tests show
+   examiners do is in the examiner's script, in our own words: the name first, the questions
+   said without the LLM and with no comment on the answer ("Okay." or "And ..." now and
+   then), "Now let's move on to talk about ...", "Why?" after a short answer, "Why or why
+   not?" in Part 3, "Do you understand?" before the cue card, and a question the candidate did
+   not catch repeated word for word. The name and requests to repeat are not marked as answers
+
 After milestone 25:
 
 - Listening shows its questions as one column in the middle of the page (they were a column at

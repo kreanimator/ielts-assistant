@@ -135,9 +135,10 @@ class Session extends ChangeNotifier {
 
   bool get active => phase != Phase.idle && phase != Phase.error && phase != Phase.ending;
 
+  /// The candidate's test answers (not the name or "Could you repeat that?", which have no number).
   List<Message> get answers => [
     for (final m in messages)
-      if (!m.fromExaminer) m,
+      if (!m.fromExaminer && m.answer != null) m,
   ];
 
   int get correctionCount => answers.fold(0, (sum, a) => sum + (a.feedback?.corrections.length ?? 0));
@@ -322,7 +323,7 @@ class Session extends ChangeNotifier {
       case 'transcript':
         _micOpen = false;
         partial = '';
-        messages.add(Message(fromExaminer: false, text: message['text']));
+        messages.add(Message(fromExaminer: false, text: message['text'])..answer = message['answer']);
         _setPhase(Phase.thinking);
       case 'feedback':
         final index = message['answer'] as int;
