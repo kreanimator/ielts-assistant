@@ -120,13 +120,19 @@ class _SessionPageState extends State<SessionPage> {
                     Text('Your answers', style: theme.textTheme.titleLarge),
                     const SizedBox(height: 8),
                     for (final (i, m) in [for (final j in session.messageJson) Message.fromStored(j)].indexed)
-                      if (m.fromExaminer)
+                      // The examiner's lines, and replies that are not test answers (the name,
+                      // "Could you repeat that?"), which are saved without an answer number.
+                      if (m.fromExaminer || m.answer == null)
                         Padding(
                           padding: EdgeInsets.only(bottom: 8, top: i == 0 ? 0 : 4),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.record_voice_over_outlined, size: 18, color: theme.colorScheme.outline),
+                              Icon(
+                                m.fromExaminer ? Icons.record_voice_over_outlined : Icons.person_outline,
+                                size: 18,
+                                color: theme.colorScheme.outline,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(child: Text(m.text, style: theme.textTheme.bodyMedium)),
                             ],
